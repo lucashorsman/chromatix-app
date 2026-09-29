@@ -1,7 +1,13 @@
-﻿@use '../../../css/_config/_mixins';
+@use '../../../css/_config/_mixins';
 @use '../../../css/_config/_vars';
 
 .container {
+  button svg {
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+    max-width: 1.2rem !important;
+    max-height: 1.2rem !important;
+  }
   position: fixed;
   top: 0;
   left: 0;
