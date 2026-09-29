@@ -93,14 +93,7 @@ const AlbumArray = () => {
           {titleBlock}
         </ViewList>
       )}
-      {isCrateView && (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
-          {titleBlock}
-          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-            <RecordBin3D albums={sortedAlbums} />
-          </div>
-        </div>
-      )}
+      {isCrateView && <RecordBin3D albums={sortedAlbums} onExit={() => setViewAlbums('grid')} />}
     </>
   );
 };

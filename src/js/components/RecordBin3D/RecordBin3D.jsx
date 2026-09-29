@@ -43,6 +43,38 @@ function playFlipSound() {
   }
 }
 
+function createProceduralWoodTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createLinearGradient(0, 0, 512, 512);
+  grad.addColorStop(0, '#2e1c12');
+  grad.addColorStop(0.5, '#3d2518');
+  grad.addColorStop(1, '#24150d');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 512);
+
+  ctx.fillStyle = 'rgba(15, 8, 4, 0.18)';
+  for (let y = 0; y < 512; y += 3) {
+    const wave = Math.sin(y * 0.04) * 6 + Math.cos(y * 0.015) * 10;
+    ctx.fillRect(0, y + wave, 512, 1.4);
+  }
+
+  const radial = ctx.createRadialGradient(256, 256, 50, 256, 256, 360);
+  radial.addColorStop(0, 'rgba(255, 220, 180, 0.06)');
+  radial.addColorStop(1, 'rgba(0, 0, 0, 0.25)');
+  ctx.fillStyle = radial;
+  ctx.fillRect(0, 0, 512, 512);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(3, 3);
+  return texture;
+}
+
 const getProxiedImageUrl = (url) => {
   if (!url) return null;
   if (typeof window !== 'undefined' && window.isElectron) return url;
@@ -52,7 +84,7 @@ const getProxiedImageUrl = (url) => {
   return url;
 };
 
-export const RecordBin3D = ({ albums = [] }) => {
+export const RecordBin3D = ({ albums = [], onExit }) => {
   const history = useHistory();
   const dispatch = useDispatch();
 
@@ -68,7 +100,6 @@ export const RecordBin3D = ({ albums = [] }) => {
   const libraryId = currentLibrary?.libraryId;
 
   const allAlbumTracks = useSelector(({ appModel }) => appModel.allAlbumTracks);
-
   const currentTrack = playingTrackList?.[playingTrackKeys[playingTrackIndex]];
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,6 +177,11 @@ export const RecordBin3D = ({ albums = [] }) => {
     [currentAlbum, dispatch]
   );
 
+  const handleExit = useCallback(() => {
+    if (onExit) onExit();
+    else dispatch.sessionModel.setSessionState({ viewAlbums: 'grid' });
+  }, [onExit, dispatch]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'INPUT') return;
@@ -158,25 +194,40 @@ export const RecordBin3D = ({ albums = [] }) => {
       } else if (e.key === ' ') {
         handlePlayAlbum();
         e.preventDefault();
+      } else if (e.key === 'Escape') {
+        handleExit();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, goToIndex, handlePlayAlbum]);
+  }, [selectedIndex, goToIndex, handlePlayAlbum, handleExit]);
+
+  // Keep a mutable ref of live state so Three.js render loop NEVER needs to remount!
+  const stateRef = useRef({});
+  stateRef.current = {
+    filteredAlbums,
+    selectedIndex,
+    playerPlaying,
+    playingAlbumId,
+    currentAlbum,
+    goToIndex,
+    handlePlayAlbum,
+  };
 
   useEffect(() => {
     if (!mountRef.current) return;
 
     let animationFrameId;
-    const width = mountRef.current.clientWidth || 800;
-    const height = mountRef.current.clientHeight || 600;
+    const width = mountRef.current.clientWidth || window.innerWidth;
+    const height = mountRef.current.clientHeight || window.innerHeight;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x130f0d, 0.012);
+    scene.fog = new THREE.FogExp2(0x100c0a, 0.012);
 
-    const camera = new THREE.PerspectiveCamera(38, width / height, 0.5, 1000);
-    camera.position.set(-1, 21, 30);
-    camera.lookAt(-2, 5, 0);
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.5, 1000);
+    // Adjusted camera framing: plenty of headroom so lifted album is never obscured!
+    camera.position.set(-2, 19, 36);
+    camera.lookAt(-2, 5.5, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
@@ -206,56 +257,51 @@ export const RecordBin3D = ({ albums = [] }) => {
       return tex;
     };
 
-    const ambientLight = new THREE.AmbientLight(0xffeedd, 0.85);
+    const ambientLight = new THREE.AmbientLight(0xffeedd, 0.9);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfff2de, 1.9);
-    sunLight.position.set(30, 45, 25);
+    const sunLight = new THREE.DirectionalLight(0xfff4e2, 1.8);
+    sunLight.position.set(30, 48, 28);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 1;
-    sunLight.shadow.camera.far = 120;
-    sunLight.shadow.camera.left = -25;
-    sunLight.shadow.camera.right = 25;
-    sunLight.shadow.camera.top = 25;
-    sunLight.shadow.camera.bottom = -25;
+    sunLight.shadow.camera.far = 130;
+    sunLight.shadow.camera.left = -28;
+    sunLight.shadow.camera.right = 28;
+    sunLight.shadow.camera.top = 28;
+    sunLight.shadow.camera.bottom = -28;
     sunLight.shadow.bias = -0.0005;
     scene.add(sunLight);
 
-    const crateSpot = new THREE.SpotLight(0xffd5b0, 1.8, 55, Math.PI / 4, 0.4, 1.2);
-    crateSpot.position.set(-6, 26, 14);
+    const crateSpot = new THREE.SpotLight(0xffd5b0, 1.8, 60, Math.PI / 3.8, 0.45, 1.2);
+    crateSpot.position.set(-7, 28, 16);
     crateSpot.target.position.set(-8, 5, 0);
     scene.add(crateSpot);
     scene.add(crateSpot.target);
 
-    const rimLight = new THREE.PointLight(0x7fb5ff, 0.5, 60);
-    rimLight.position.set(-25, 12, -20);
+    const rimLight = new THREE.PointLight(0x7fb5ff, 0.55, 70);
+    rimLight.position.set(-28, 14, -20);
     scene.add(rimLight);
 
-    const deskWoodTexture = textureLoader.load('/vinyl/desk_texture.jpg', (tex) => {
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(2, 2);
-    });
-    deskWoodTexture.colorSpace = THREE.SRGBColorSpace;
-
+    // Realistic procedural walnut wood desk (no pre-baked illustrations)
+    const deskWoodTexture = createProceduralWoodTexture();
     const deskMat = new THREE.MeshStandardMaterial({
-      color: 0x8a5b36,
       map: deskWoodTexture,
-      roughness: 0.68,
+      roughness: 0.65,
       metalness: 0.04,
     });
-    const desk = new THREE.Mesh(new THREE.BoxGeometry(120, 4, 80), deskMat);
+    const desk = new THREE.Mesh(new THREE.BoxGeometry(140, 4, 90), deskMat);
     desk.position.set(0, -2.1, 0);
     desk.receiveShadow = true;
     scene.add(desk);
 
+    // Crate
     const crateGroup = new THREE.Group();
-    crateGroup.position.set(-7.5, 0, 0);
+    crateGroup.position.set(-8.5, 0, 0);
 
     const crateWoodMat = new THREE.MeshStandardMaterial({
-      color: 0x5a3922,
+      color: 0x54351f,
       roughness: 0.72,
       metalness: 0.02,
     });
@@ -301,17 +347,18 @@ export const RecordBin3D = ({ albums = [] }) => {
 
     scene.add(crateGroup);
 
+    // Turntable (spaced comfortably to the right)
     const turntableGroup = new THREE.Group();
-    turntableGroup.position.set(17.5, 0, 0);
+    turntableGroup.position.set(18.5, 0, 0);
 
-    const ttBaseMat = new THREE.MeshStandardMaterial({ color: 0x2e1e16, roughness: 0.5, metalness: 0.15 });
+    const ttBaseMat = new THREE.MeshStandardMaterial({ color: 0x281912, roughness: 0.5, metalness: 0.15 });
     const ttBase = new THREE.Mesh(new THREE.BoxGeometry(19, 2.2, 16), ttBaseMat);
     ttBase.position.set(0, 1.1, 0);
     ttBase.castShadow = true;
     ttBase.receiveShadow = true;
     turntableGroup.add(ttBase);
 
-    const topPlateMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.35, metalness: 0.7 });
+    const topPlateMat = new THREE.MeshStandardMaterial({ color: 0x909090, roughness: 0.35, metalness: 0.7 });
     const topPlate = new THREE.Mesh(new THREE.BoxGeometry(18.2, 0.1, 15.2), topPlateMat);
     topPlate.position.set(0, 2.25, 0);
     topPlate.receiveShadow = true;
@@ -360,14 +407,14 @@ export const RecordBin3D = ({ albums = [] }) => {
     scene.add(turntableGroup);
 
     const MAX_VISIBLE_SLEEVES = 24;
-    const sleeveGeometry = new THREE.BoxGeometry(13.0, 13.0, 0.16);
+    const sleeveGeometry = new THREE.BoxGeometry(12.2, 12.2, 0.16);
     const sleevePool = [];
 
-    const defaultSpineMat = new THREE.MeshStandardMaterial({ color: 0x3a3028, roughness: 0.85 });
+    const defaultSpineMat = new THREE.MeshStandardMaterial({ color: 0x362c24, roughness: 0.85 });
 
     for (let i = 0; i < MAX_VISIBLE_SLEEVES; i++) {
-      const frontMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.05 });
-      const backMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.45, metalness: 0.05 });
+      const frontMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.02 });
+      const backMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.02 });
       const materials = [defaultSpineMat, defaultSpineMat, defaultSpineMat, defaultSpineMat, frontMat, backMat];
       const sleeveMesh = new THREE.Mesh(sleeveGeometry, materials);
       sleeveMesh.castShadow = true;
@@ -375,7 +422,7 @@ export const RecordBin3D = ({ albums = [] }) => {
       sleeveMesh.visible = false;
       crateGroup.add(sleeveMesh);
 
-      const peekVinyl = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 0.04, 32), vinylMat);
+      const peekVinyl = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.5, 0.04, 32), vinylMat);
       peekVinyl.rotation.x = Math.PI / 2;
       peekVinyl.visible = false;
       sleeveMesh.add(peekVinyl);
@@ -390,6 +437,10 @@ export const RecordBin3D = ({ albums = [] }) => {
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
 
+      const state = stateRef.current;
+      const filtered = state.filteredAlbums || [];
+      const totalAlbums = filtered.length;
+
       const diff = posRef.current.target - continuousPos;
       if (Math.abs(diff) > 0.001) {
         continuousPos += diff * 0.16;
@@ -398,11 +449,11 @@ export const RecordBin3D = ({ albums = [] }) => {
       }
 
       const roundIdx = Math.round(continuousPos);
-      if (roundIdx !== selectedIndex && !posRef.current.isDragging) {
+      if (roundIdx !== state.selectedIndex && !posRef.current.isDragging) {
         setSelectedIndex(roundIdx);
       }
 
-      if (playerPlaying) {
+      if (state.playerPlaying) {
         platter.rotation.y -= 0.035;
         vinylRecord.rotation.y -= 0.035;
         centerLabel.rotation.y -= 0.035;
@@ -413,7 +464,7 @@ export const RecordBin3D = ({ albums = [] }) => {
       currentArmRotation += (targetArmRotation - currentArmRotation) * 0.08;
       armPivotGroup.rotation.y = currentArmRotation;
 
-      const currentPlayingAlbum = albums.find((a) => a.albumId === playingAlbumId);
+      const currentPlayingAlbum = albums.find((a) => a.albumId === state.playingAlbumId);
       const playingThumb = currentPlayingAlbum?.thumbMd || currentPlayingAlbum?.thumbSm;
       if (playingThumb) {
         const tex = getTexture(playingThumb);
@@ -423,7 +474,6 @@ export const RecordBin3D = ({ albums = [] }) => {
         }
       }
 
-      const totalAlbums = filteredAlbums.length;
       if (totalAlbums === 0) {
         sleevePool.forEach((item) => (item.mesh.visible = false));
         renderer.render(scene, camera);
@@ -440,11 +490,11 @@ export const RecordBin3D = ({ albums = [] }) => {
       for (let idx = startIdx; idx <= endIdx; idx++) {
         if (poolPtr >= MAX_VISIBLE_SLEEVES) break;
         const item = sleevePool[poolPtr++];
-        const album = filteredAlbums[idx];
+        const album = filtered[idx];
         item.mesh.visible = true;
         item.albumIndex = idx;
 
-        const thumbUrl = album.thumbMd || album.thumbSm;
+        const thumbUrl = album?.thumbMd || album?.thumbSm;
         if (thumbUrl) {
           const tex = getTexture(thumbUrl);
           if (tex) {
@@ -462,28 +512,29 @@ export const RecordBin3D = ({ albums = [] }) => {
         const delta = idx - continuousPos;
         let targetZ = 0;
         let targetRotX = 0;
-        let targetY = 7.0;
+        let targetY = 6.4;
 
         if (delta < -0.3) {
           targetRotX = -0.42;
-          targetZ = delta * 0.55 - 1.5;
-          targetY = 6.4;
+          targetZ = delta * 0.52 - 1.5;
+          targetY = 6.0;
           item.peekVinyl.visible = false;
         } else if (delta > 0.3) {
           targetRotX = 0.22;
-          targetZ = delta * 0.55 + 1.2;
-          targetY = 6.6;
+          targetZ = delta * 0.52 + 1.2;
+          targetY = 6.2;
           item.peekVinyl.visible = false;
         } else {
           const flipT = (delta + 0.3) / 0.6;
           targetRotX = THREE.MathUtils.lerp(-0.42, 0.22, flipT);
-          targetZ = delta * 0.55;
+          targetZ = delta * 0.52;
+          // Calibrated lift height so the top of the sleeve is never obscured by the viewport edge!
           const liftFactor = Math.max(0, 1.0 - Math.abs(delta) * 2.2);
-          targetY = 7.0 + liftFactor * 4.4;
+          targetY = 6.4 + liftFactor * 3.0;
 
           if (liftFactor > 0.3) {
             item.peekVinyl.visible = true;
-            item.peekVinyl.position.set(2.4, 2.8, -0.1);
+            item.peekVinyl.position.set(2.2, 2.4, -0.1);
           } else {
             item.peekVinyl.visible = false;
           }
@@ -514,14 +565,16 @@ export const RecordBin3D = ({ albums = [] }) => {
       const rect = canvas.getBoundingClientRect();
       const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const ny = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-      camera.position.x = -1 + nx * 2.5;
-      camera.position.y = 21 + ny * 1.5;
-      camera.lookAt(-2, 5, 0);
+      camera.position.x = -2 + nx * 2.2;
+      camera.position.y = 19 + ny * 1.2;
+      camera.lookAt(-2, 5.5, 0);
 
       if (!posRef.current.isDragging) return;
       const diffX = e.clientX - posRef.current.dragStartX;
-      const deltaIndex = -diffX / 50;
-      const newTarget = Math.max(0, Math.min(filteredAlbums.length - 1, posRef.current.dragStartTarget + deltaIndex));
+      const deltaIndex = -diffX / 55;
+      const state = stateRef.current;
+      const total = state.filteredAlbums?.length || 1;
+      const newTarget = Math.max(0, Math.min(total - 1, posRef.current.dragStartTarget + deltaIndex));
       posRef.current.target = newTarget;
     };
 
@@ -537,7 +590,9 @@ export const RecordBin3D = ({ albums = [] }) => {
     const onWheel = (e) => {
       e.preventDefault();
       const step = e.deltaY > 0 ? 1 : -1;
-      const newTarget = Math.max(0, Math.min(filteredAlbums.length - 1, posRef.current.target + step));
+      const state = stateRef.current;
+      const total = state.filteredAlbums?.length || 1;
+      const newTarget = Math.max(0, Math.min(total - 1, posRef.current.target + step));
       if (newTarget !== posRef.current.target) {
         posRef.current.target = newTarget;
         setSelectedIndex(newTarget);
@@ -561,10 +616,11 @@ export const RecordBin3D = ({ albums = [] }) => {
         const hitMesh = intersects[0].object;
         const hitItem = sleevePool.find((s) => s.mesh === hitMesh);
         if (hitItem && hitItem.albumIndex >= 0) {
-          if (hitItem.albumIndex === selectedIndex) {
-            handlePlayAlbum();
+          const state = stateRef.current;
+          if (hitItem.albumIndex === state.selectedIndex) {
+            state.handlePlayAlbum();
           } else {
-            goToIndex(hitItem.albumIndex);
+            state.goToIndex(hitItem.albumIndex);
           }
         }
       }
@@ -578,8 +634,8 @@ export const RecordBin3D = ({ albums = [] }) => {
 
     const onResize = () => {
       if (!mountRef.current) return;
-      const w = mountRef.current.clientWidth;
-      const h = mountRef.current.clientHeight;
+      const w = mountRef.current.clientWidth || window.innerWidth;
+      const h = mountRef.current.clientHeight || window.innerHeight;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
@@ -596,8 +652,9 @@ export const RecordBin3D = ({ albums = [] }) => {
       canvas.removeEventListener('click', onClick);
       renderer.dispose();
       textureCache.forEach((tex) => tex.dispose());
+      deskWoodTexture.dispose();
     };
-  }, [filteredAlbums, selectedIndex, playerPlaying, playingAlbumId, albums, goToIndex, handlePlayAlbum]);
+  }, [albums]);
 
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
   const handleAZClick = (letter) => {
@@ -616,12 +673,22 @@ export const RecordBin3D = ({ albums = [] }) => {
     <div className={style.container} ref={containerRef}>
       <div className={style.canvasWrap} ref={mountRef} />
 
+      {/* Top Floating Bar */}
       <div className={style.topBar}>
+        <div className={style.topBarLeft}>
+          <button className={style.exitButton} onClick={handleExit} title="Exit 3D View (Esc)">
+            <Icon icon="GridIcon" className={style.exitIcon} cover stroke />
+            <span>Grid View</span>
+          </button>
+          <span className={style.crateTitleBadge}>{filteredAlbums.length} Records in Bin</span>
+        </div>
+
+        {/* Minimalist Search Pill */}
         <div className={style.searchWrap}>
           <Icon icon="SearchIcon" className={style.searchIcon} stroke />
           <input
             type="text"
-            placeholder="Search crate..."
+            placeholder="Search record bin..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -635,28 +702,21 @@ export const RecordBin3D = ({ albums = [] }) => {
           )}
         </div>
 
-        {currentTrack && (
-          <div className={style.nowSpinningBadge}>
-            <div className={clsx(style.spinningDisc, { [style.active]: playerPlaying })} />
-            <div className={style.spinningInfo}>
-              <span className={style.label}>Now Spinning</span>
-              <span className={style.title}>{currentTrack.title || 'Unknown Title'}</span>
-              <span className={style.artist}>{currentTrack.artist || 'Unknown Artist'}</span>
+        <div className={style.topBarRight}>
+          {currentTrack && (
+            <div className={style.nowSpinningBadge}>
+              <div className={clsx(style.spinningDisc, { [style.active]: playerPlaying })} />
+              <div className={style.spinningInfo}>
+                <span className={style.label}>Now Spinning</span>
+                <span className={style.title}>{currentTrack.title || 'Unknown Title'}</span>
+                <span className={style.artist}>{currentTrack.artist || 'Unknown Artist'}</span>
+              </div>
             </div>
-            <button
-              className={style.badgePlayBtn}
-              onClick={() => {
-                if (playerPlaying) dispatch.playerModel.playerPause();
-                else dispatch.playerModel.playerResume();
-              }}
-              title={playerPlaying ? 'Pause' : 'Play'}
-            >
-              <Icon icon={playerPlaying ? 'PauseFilledIcon' : 'PlayFilledIcon'} cover />
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
+      {/* Active Album HUD Card (Bottom Left) */}
       {currentAlbum && (
         <div className={style.activeCard}>
           <div className={style.cardTop}>
@@ -720,6 +780,7 @@ export const RecordBin3D = ({ albums = [] }) => {
         </div>
       )}
 
+      {/* Tracklist Slide-Out Drawer (Right Side) */}
       {showTracklist && currentAlbum && (
         <div className={style.tracklistDrawer}>
           <div className={style.drawerHeader}>
@@ -761,40 +822,61 @@ export const RecordBin3D = ({ albums = [] }) => {
         </div>
       )}
 
-      <div className={style.bottomNav}>
-        <div className={style.navPill}>
+      {/* Bottom Controls (Floating Minimalist) */}
+      <div className={style.bottomControls}>
+        {/* Playback Controls Pill */}
+        <div className={style.playbackPill}>
+          <button className={style.controlBtn} onClick={() => dispatch.playerModel.playerPrev()} title="Previous Track">
+            <Icon icon="SkipBackIcon" cover stroke />
+          </button>
+          <button
+            className={style.mainPlayBtn}
+            onClick={() => {
+              if (playerPlaying) dispatch.playerModel.playerPause();
+              else dispatch.playerModel.playerResume();
+            }}
+            title={playerPlaying ? 'Pause' : 'Play'}
+          >
+            <Icon icon={playerPlaying ? 'PauseFilledIcon' : 'PlayFilledIcon'} cover />
+          </button>
+          <button className={style.controlBtn} onClick={() => dispatch.playerModel.playerNext()} title="Next Track">
+            <Icon icon="SkipForwardIcon" cover stroke />
+          </button>
+        </div>
+
+        {/* Center Scrubber */}
+        <div className={style.centerScrubber}>
           <button
             className={style.arrowBtn}
             onClick={() => goToIndex(selectedIndex - 1)}
             disabled={selectedIndex <= 0}
-            title="Previous Album (Left Arrow)"
+            title="Previous Record (Left Arrow)"
           >
             <Icon icon="ArrowLeftIcon" cover stroke />
           </button>
 
-          <div className={style.sliderWrap}>
-            <input
-              type="range"
-              min={0}
-              max={Math.max(0, filteredAlbums.length - 1)}
-              value={selectedIndex}
-              onChange={(e) => goToIndex(parseInt(e.target.value, 10))}
-            />
-            <span className={style.counter}>
-              {filteredAlbums.length > 0 ? `${selectedIndex + 1} / ${filteredAlbums.length}` : '0 / 0'}
-            </span>
-          </div>
+          <input
+            type="range"
+            min={0}
+            max={Math.max(0, filteredAlbums.length - 1)}
+            value={selectedIndex}
+            onChange={(e) => goToIndex(parseInt(e.target.value, 10))}
+          />
+          <span className={style.counter}>
+            {filteredAlbums.length > 0 ? `${selectedIndex + 1} / ${filteredAlbums.length}` : '0 / 0'}
+          </span>
 
           <button
             className={style.arrowBtn}
             onClick={() => goToIndex(selectedIndex + 1)}
             disabled={selectedIndex >= filteredAlbums.length - 1}
-            title="Next Album (Right Arrow)"
+            title="Next Record (Right Arrow)"
           >
             <Icon icon="ArrowRightIcon" cover stroke />
           </button>
         </div>
 
+        {/* Quick A-Z Scrubber */}
         <div className={style.azPicker}>
           {alphabet.map((letter) => (
             <button key={letter} onClick={() => handleAZClick(letter)}>
@@ -803,8 +885,6 @@ export const RecordBin3D = ({ albums = [] }) => {
           ))}
         </div>
       </div>
-
-      <div className={style.hintText}>Drag or Scroll to flip records</div>
     </div>
   );
 };
