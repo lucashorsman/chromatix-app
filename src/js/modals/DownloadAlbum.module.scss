@@ -1,0 +1,203 @@
+@use '../../css/_config/_mixins';
+
+.downloadWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-opacity-07);
+}
+
+.urlInput {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--color-tertiary-bg);
+  border: 1px solid var(--color-tertiary-border);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--color-text);
+  transition: border-color 0.2s;
+
+  @include mixins.focus-self-outline;
+
+  &::placeholder {
+    color: var(--color-opacity-04);
+  }
+
+  &:focus {
+    border-color: var(--color-accent);
+  }
+}
+
+.pathBadge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--color-secondary-bg);
+  border: 1px solid var(--color-secondary-border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--color-opacity-08);
+}
+
+.pathText {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--color-accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.openFolderBtn {
+  background: transparent;
+  border: none;
+  color: var(--color-opacity-06);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 12px;
+  text-decoration: underline;
+
+  &:hover {
+    color: var(--color-text);
+  }
+}
+
+.progressCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--color-secondary-bg);
+  border: 1px solid var(--color-secondary-border);
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.progressHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.progressTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.progressPercent {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.progressBarTrack {
+  width: 100%;
+  height: 8px;
+  background: var(--color-tertiary-bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progressMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-opacity-06);
+}
+
+.statusText {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.errorBox {
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.successBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  border-radius: 6px;
+  color: #22c55e;
+  font-size: 13px;
+}
+
+.tagBadge {
+  display: inline-block;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--color-opacity-08);
+}
+
+.modalHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: var(--color-tertiary-bg);
+  border: 1px solid var(--color-tertiary-border);
+  border-radius: 6px;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--color-text);
+  }
+}

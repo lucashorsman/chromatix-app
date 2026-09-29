@@ -46,6 +46,7 @@ export { default as SettingsList } from './SettingsList/SettingsList';
 export { default as SettingsPlayback } from './SettingsPlayback/SettingsPlayback';
 export { default as SettingsSidebar } from './SettingsSidebar/SettingsSidebar';
 export { default as SideBar } from './SideBar/SideBar';
+export { default as SideBarDownloadProgress } from './SideBarDownloadProgress/SideBarDownloadProgress';
 export { default as StarRating } from './StarRating/StarRating';
 export { default as TitleBasic } from './TitleBasic/TitleBasic';
 export { default as TitleHeading } from './TitleHeading/TitleHeading';

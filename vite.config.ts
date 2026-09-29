@@ -31,10 +31,14 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  define: {
+    'import.meta.env.VITE_DATE': JSON.stringify(process.env.VITE_DATE || String(Math.floor(Date.now() / 1000))),
+    'import.meta.env.VITE_VERSION': JSON.stringify(process.env.VITE_VERSION || '0.0.0'),
+  },
   server: {
     host: true,
     port: 4000,
-    open: true,
+    open: !process.env.ELECTRON,
   },
   build: {
     outDir: 'build',

@@ -2,6 +2,7 @@
 // IMPORTS
 // ======================================================================
 
+import axios from 'axios';
 import * as jellyTools from 'js/services/jellyTools';
 import * as plexTools from 'js/services/plexTools';
 import { analyticsEvent, getLocalStorage } from 'js/utils';
@@ -1874,6 +1875,38 @@ const runFetch = (key, startFetch) => {
     });
   runningRequests.set(key, promise);
   return promise;
+};
+
+// ======================================================================
+// REFRESH LIBRARY
+// ======================================================================
+
+export const refreshLibrary = (libraryId) => {
+  try {
+    const currentService = store.getState().appModel.currentService || 'plex';
+    const serverBaseUrl = store.getState().appModel.serverBaseUrl;
+    const currentServer = store.getState().sessionModel.currentServer;
+    const accessToken = currentServer?.accessToken;
+
+    if (!serverBaseUrl || !libraryId) return Promise.resolve();
+
+    if (currentService === 'plex') {
+      return axios
+        .get(`${serverBaseUrl}/library/sections/${libraryId}/refresh`, {
+          params: { 'X-Plex-Token': accessToken },
+        })
+        .catch((err) => console.warn('Plex refresh request error:', err.message));
+    } else if (currentService === 'jellyfin') {
+      return axios
+        .post(`${serverBaseUrl}/Library/Refresh`, null, {
+          headers: { 'X-Emby-Token': accessToken },
+        })
+        .catch((err) => console.warn('Jellyfin refresh request error:', err.message));
+    }
+  } catch (err) {
+    console.warn('Could not trigger library refresh:', err);
+  }
+  return Promise.resolve();
 };
 
 // ======================================================================

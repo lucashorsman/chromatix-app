@@ -138,6 +138,33 @@ const App = () => {
     document.documentElement.setAttribute('data-access-focus', themeKeyFocus);
   }, [themeKeyFocus]);
 
+  // Global music downloader IPC listeners so download continues in background when modal is closed
+  useEffect(() => {
+    if (!window?.ipcRenderer) return;
+
+    const handleProgress = (_event, data) => {
+      dispatch.downloaderModel.handleProgress(data);
+    };
+    const handleComplete = (_event, result) => {
+      dispatch.downloaderModel.handleComplete(result);
+    };
+    const handleError = (_event, data) => {
+      dispatch.downloaderModel.handleError(data);
+    };
+
+    const removeProg = window.ipcRenderer.on('download-music-progress', handleProgress);
+    const removeComp = window.ipcRenderer.on('download-music-complete', handleComplete);
+    const removeErr = window.ipcRenderer.on('download-music-error', handleError);
+
+    return () => {
+      if (window?.ipcRenderer) {
+        window.ipcRenderer.removeListener('download-music-progress', removeProg);
+        window.ipcRenderer.removeListener('download-music-complete', removeComp);
+        window.ipcRenderer.removeListener('download-music-error', removeErr);
+      }
+    };
+  }, [dispatch]);
+
   // toggle scrollbar preference data attributes on html (Windows and Linux only)
   useEffect(() => {
     if (envData.osName !== 'Linux' && envData.osName !== 'Windows') return;

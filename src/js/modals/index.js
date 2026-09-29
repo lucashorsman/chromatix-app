@@ -6,3 +6,4 @@ export { default as ImagePreview } from './ImagePreview';
 export { default as PlaylistAdd } from './PlaylistAdd';
 export { default as PlaylistEdit } from './PlaylistEdit';
 export { default as ReleaseNotes } from './ReleaseNotes';
+export { default as DownloadAlbum } from './DownloadAlbum';

@@ -20,4 +20,5 @@ tests/.auth/
 # Builds
 build/
 dist/
+release/
 .vercel

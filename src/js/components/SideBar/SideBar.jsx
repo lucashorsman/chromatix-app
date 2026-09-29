@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { NavLink } from 'react-router-dom';
 import * as RadixPopover from '@radix-ui/react-popover';
 
-import { ContextMenuPlaylists, Icon, ReleaseBanner, UserMenu } from 'js/components';
+import { ContextMenuPlaylists, Icon, ReleaseBanner, SideBarDownloadProgress, UserMenu } from 'js/components';
 import { useGetGlobalData, useKeyControl, useNavigationHistory } from 'js/hooks';
 import { getEnvironment } from 'js/utils';
 import * as bridge from 'js/services/bridge';
@@ -100,6 +100,32 @@ const SideBar = () => {
         )}
 
         {menuShowSearch && <SearchField />}
+
+        <button
+          type="button"
+          className={style.link}
+          onClick={() => {
+            dispatch.dialogModel.showModal('DownloadAlbum');
+          }}
+          title="Download Music / Album to D:/Music"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            marginTop: '6px',
+            marginBottom: '4px',
+            color: 'inherit',
+          }}
+        >
+          <span className={style.icon}>
+            <Icon icon="DownloadIcon" cover stroke />
+          </span>
+          Download Album
+        </button>
+
+        <SideBarDownloadProgress />
 
         {menuShowBanners && <ReleaseBanner />}
 
