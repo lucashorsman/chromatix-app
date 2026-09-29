@@ -1,14 +1,10 @@
-import { defineConfig } from 'vitest/config';
+﻿import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 /**
  * Forces a full page reload when a hook file is saved, instead of hot-swapping it.
- * Without this, Vite's HMR remounts components that use the hook, which re-fires
- * their useEffect calls. Those effects call bridge API functions that read from the
- * Redux store — but the store hasn't finished reloading its data from localStorage
- * yet, so the values are null and the app throws an error.
  */
 const fullReloadOnHooksChange = {
   name: 'full-reload-on-hooks-change',
@@ -20,12 +16,39 @@ const fullReloadOnHooksChange = {
   },
 };
 
+/**
+ * Image proxy for WebGL textures to prevent cross-origin canvas tainting in dev server.
+ */
+const imageProxyPlugin = {
+  name: 'image-proxy',
+  configureServer(server: any) {
+    server.middlewares.use('/api/proxy-image', async (req: any, res: any) => {
+      const url = new URL(req.url, 'http://localhost').searchParams.get('url');
+      if (!url) {
+        res.statusCode = 400;
+        return res.end('Missing url');
+      }
+      try {
+        const response = await fetch(url);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+        const buffer = await response.arrayBuffer();
+        res.end(Buffer.from(buffer));
+      } catch (err) {
+        res.statusCode = 500;
+        res.end(String(err));
+      }
+    });
+  },
+};
+
 export default defineConfig({
   appType: 'spa',
   plugins: [
     react(),
     svgr(),
     fullReloadOnHooksChange,
+    imageProxyPlugin,
     process.env.ANALYZE && visualizer({ open: true, filename: 'build/stats.html', gzipSize: true, brotliSize: true }),
   ],
   resolve: {
@@ -46,17 +69,7 @@ export default defineConfig({
     target: 'es2020',
     rolldownOptions: {
       output: {
-        // Code splitting
         manualChunks: (id) => {
-          // if (
-          //   id.includes('node_modules/react/') ||
-          //   id.includes('node_modules/react-dom/') ||
-          //   id.includes('node_modules/react-redux/') ||
-          //   id.includes('node_modules/react-router-dom/') ||
-          //   id.includes('node_modules/scheduler/')
-          // ) {
-          //   return 'vendor';
-          // }
           if (id.includes('node_modules/@radix-ui/')) {
             return 'radix';
           }

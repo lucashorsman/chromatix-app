@@ -22,3 +22,5 @@ build/
 dist/
 release/
 .vercel
+
+vinly_vis/

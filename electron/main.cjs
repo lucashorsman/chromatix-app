@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const downloader = require('./downloader.cjs');
 const { startStaticServer } = require('./server.cjs');
@@ -46,6 +46,7 @@ async function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: false,
     },
   });
 
@@ -138,3 +139,4 @@ ipcMain.on('open-folder', (_event, folderPath) => {
     shell.openPath(folderPath);
   }
 });
+

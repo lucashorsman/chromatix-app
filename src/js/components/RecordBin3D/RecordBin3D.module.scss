@@ -1,0 +1,651 @@
+﻿@use '../../../css/_config/_mixins';
+@use '../../../css/_config/_vars';
+
+.container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #201a16 0%, #110e0c 60%, #090706 100%);
+  user-select: none;
+}
+
+.canvasWrap {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+// ----------------------------------------------------------------------
+// TOP BAR & CONTROLS
+// ----------------------------------------------------------------------
+
+.topBar {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.searchWrap {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  background: rgba(28, 22, 18, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(220, 180, 140, 0.2);
+  border-radius: 20px;
+  padding: 6px 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+
+  &:focus-within {
+    border-color: rgba(235, 175, 100, 0.6);
+    box-shadow: 0 4px 25px rgba(235, 175, 100, 0.15);
+  }
+
+  input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #f3ece4;
+    font-size: 13px;
+    width: 180px;
+    margin-left: 8px;
+
+    &::placeholder {
+      color: rgba(243, 236, 228, 0.45);
+    }
+  }
+
+  .clearBtn {
+    background: none;
+    border: none;
+    color: rgba(243, 236, 228, 0.5);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    line-height: 1;
+
+    &:hover {
+      color: #fff;
+    }
+  }
+}
+
+.nowSpinningBadge {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(24, 18, 14, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 160, 90, 0.25);
+  border-radius: 12px;
+  padding: 8px 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  color: #eedcc6;
+
+  .spinningDisc {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, #111, #333, #111, #222, #111);
+    border: 2px solid #555;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    flex-shrink: 0;
+
+    &.active {
+      animation: spinVinyl 2s linear infinite;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      background: #c88942;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      border: 1px solid #fff;
+    }
+  }
+
+  .spinningInfo {
+    display: flex;
+    flex-direction: column;
+    max-width: 220px;
+
+    .label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #d4a05a;
+      font-weight: 700;
+    }
+
+    .title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .artist {
+      font-size: 11px;
+      color: rgba(243, 236, 228, 0.6);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .badgePlayBtn {
+    background: #d4a05a;
+    border: none;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1a120b;
+    cursor: pointer;
+    transition:
+      transform 0.15s ease,
+      background 0.15s ease;
+    flex-shrink: 0;
+
+    &:hover {
+      background: #f1b970;
+      transform: scale(1.08);
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
+// ACTIVE ALBUM HUD CARD (BOTTOM LEFT)
+// ----------------------------------------------------------------------
+
+.activeCard {
+  position: absolute;
+  bottom: 84px;
+  left: 24px;
+  width: 380px;
+  max-width: calc(100% - 48px);
+  background: rgba(22, 17, 14, 0.88);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(220, 180, 140, 0.2);
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: #eedcc6;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeInCard 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .cardTop {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .albumCoverMini {
+    width: 68px;
+    height: 68px;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+  }
+
+  .meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+
+    .albumTitle {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.25;
+      margin-bottom: 2px;
+    }
+
+    .artistName {
+      font-size: 13px;
+      color: #d4a05a;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    .subInfo {
+      font-size: 11px;
+      color: rgba(238, 220, 198, 0.6);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+  }
+
+  .actionsRow {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+    .playButton {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #d4a05a 0%, #b8823b 100%);
+      color: #1a120b;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 9px 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(212, 160, 90, 0.35);
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: linear-gradient(135deg, #e4b370 0%, #ca9249 100%);
+        box-shadow: 0 6px 20px rgba(212, 160, 90, 0.5);
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(1px);
+      }
+    }
+
+    .iconBtn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #eedcc6;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #fff;
+      }
+
+      &.active {
+        background: rgba(212, 160, 90, 0.25);
+        border-color: #d4a05a;
+        color: #d4a05a;
+      }
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
+// TRACKLIST DRAWER (RIGHT SIDE)
+// ----------------------------------------------------------------------
+
+.tracklistDrawer {
+  position: absolute;
+  top: 60px;
+  bottom: 84px;
+  right: 20px;
+  width: 360px;
+  max-width: calc(100% - 40px);
+  background: rgba(20, 15, 12, 0.92);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(220, 180, 140, 0.25);
+  border-radius: 16px;
+  box-shadow: -8px 12px 40px rgba(0, 0, 0, 0.6);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideInDrawer 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .drawerHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+    h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: #eedcc6;
+      letter-spacing: 0.02em;
+    }
+
+    .closeBtn {
+      background: none;
+      border: none;
+      color: rgba(238, 220, 198, 0.5);
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+
+      &:hover {
+        color: #fff;
+      }
+    }
+  }
+
+  .tracksList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(220, 180, 140, 0.2);
+      border-radius: 3px;
+    }
+  }
+
+  .emptyTracks {
+    padding: 24px;
+    text-align: center;
+    color: rgba(238, 220, 198, 0.4);
+    font-size: 13px;
+  }
+
+  .trackRow {
+    display: flex;
+    align-items: center;
+    padding: 9px 18px;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+
+    &:hover {
+      background: rgba(212, 160, 90, 0.12);
+    }
+
+    &.playing {
+      background: rgba(212, 160, 90, 0.2);
+
+      .trackNumber {
+        color: #d4a05a;
+      }
+
+      .trackName {
+        color: #d4a05a;
+        font-weight: 600;
+      }
+    }
+
+    .trackNumber {
+      font-size: 12px;
+      color: rgba(238, 220, 198, 0.4);
+      width: 22px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .trackDetails {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+
+      .trackName {
+        font-size: 13px;
+        color: #eedcc6;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .trackArtist {
+        font-size: 11px;
+        color: rgba(238, 220, 198, 0.5);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    .trackDuration {
+      font-size: 11px;
+      color: rgba(238, 220, 198, 0.4);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
+// BOTTOM CONTROL BAR & SCRUBBER
+// ----------------------------------------------------------------------
+
+.bottomNav {
+  position: absolute;
+  bottom: 16px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  z-index: 10;
+  pointer-events: none;
+
+  .navPill {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(24, 18, 14, 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(220, 180, 140, 0.25);
+    border-radius: 30px;
+    padding: 8px 18px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    color: #eedcc6;
+
+    .arrowBtn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #eedcc6;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: rgba(212, 160, 90, 0.3);
+        border-color: #d4a05a;
+        color: #fff;
+        transform: scale(1.08);
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+
+    .sliderWrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      input[type='range'] {
+        -webkit-appearance: none;
+        width: 140px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.2);
+        outline: none;
+        cursor: pointer;
+
+        &::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #d4a05a;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+          cursor: pointer;
+          transition: transform 0.1s ease;
+
+          &:hover {
+            transform: scale(1.2);
+          }
+        }
+      }
+
+      .counter {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(238, 220, 198, 0.8);
+        min-width: 60px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+  }
+
+  .azPicker {
+    pointer-events: auto;
+    display: flex;
+    gap: 3px;
+    background: rgba(24, 18, 14, 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(220, 180, 140, 0.25);
+    border-radius: 30px;
+    padding: 6px 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+
+    button {
+      background: none;
+      border: none;
+      color: rgba(238, 220, 198, 0.5);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+
+      &:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      &.active {
+        color: #1a120b;
+        background: #d4a05a;
+      }
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
+// SOUND & FLIP HINT
+// ----------------------------------------------------------------------
+
+.hintText {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  font-size: 11px;
+  color: rgba(238, 220, 198, 0.35);
+  pointer-events: none;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+// ----------------------------------------------------------------------
+// ANIMATIONS
+// ----------------------------------------------------------------------
+
+@keyframes spinVinyl {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeInCard {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes slideInDrawer {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

@@ -1,4 +1,4 @@
-// ======================================================================
+﻿// ======================================================================
 // IMPORTS
 // ======================================================================
 
@@ -11,6 +11,7 @@ import {
   ActionWrap,
   ViewGrid,
   ViewList,
+  RecordBin3D,
   Loading,
   TitleHeading,
 } from 'js/components';
@@ -44,6 +45,7 @@ const AlbumArray = () => {
   const isEmptyList = !isLoading && sortedAlbums?.length === 0;
   const isGridView = !isLoading && !isEmptyList && viewAlbums === 'grid';
   const isListView = !isLoading && !isEmptyList && viewAlbums === 'list';
+  const isCrateView = !isLoading && !isEmptyList && viewAlbums === 'crate';
 
   const titleBlock = (
     <Title
@@ -51,6 +53,7 @@ const AlbumArray = () => {
       gridOptions={gridOptions}
       isGridView={isGridView}
       isListView={isListView}
+      isCrateView={isCrateView}
       orderAlbums={orderAlbums}
       platformOpts={platformOpts}
       setColumnVisibility={setColumnVisibility}
@@ -90,6 +93,14 @@ const AlbumArray = () => {
           {titleBlock}
         </ViewList>
       )}
+      {isCrateView && (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
+          {titleBlock}
+          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+            <RecordBin3D albums={sortedAlbums} />
+          </div>
+        </div>
+      )}
     </>
   );
 };
@@ -99,6 +110,7 @@ const Title = ({
   gridOptions,
   isGridView,
   isListView,
+  isCrateView,
   orderAlbums,
   platformOpts,
   setColumnVisibility,
@@ -117,19 +129,20 @@ const Title = ({
         subtitle={
           sortedAlbums ? sortedAlbums?.length + ' Album' + (sortedAlbums?.length !== 1 ? 's' : '') : <>&nbsp;</>
         }
-        padding={!isListView && !isGridView}
+        padding={!isListView && !isGridView && !isCrateView}
       />
-      <ActionWrap padding={true} inset={isListView || isGridView}>
+      <ActionWrap padding={true} inset={isListView || isGridView || isCrateView}>
         <ActionToggle
           value={viewAlbums}
           options={[
-            { value: 'grid', label: 'Grid view' },
-            { value: 'list', label: 'List view' },
+            { value: 'grid', label: 'Grid view', icon: 'GridIcon' },
+            { value: 'list', label: 'List view', icon: 'ListIcon' },
+            { value: 'crate', label: '3D Record Bin', icon: 'DiscIcon' },
           ]}
           setter={setViewAlbums}
-          icon={viewAlbums === 'grid' ? 'GridIcon' : 'ListIcon'}
+          icon={viewAlbums === 'grid' ? 'GridIcon' : viewAlbums === 'list' ? 'ListIcon' : 'DiscIcon'}
         />
-        {viewAlbums === 'grid' && (
+        {(viewAlbums === 'grid' || viewAlbums === 'crate') && (
           <>
             <ActionSort
               sortValue={sortAlbums}

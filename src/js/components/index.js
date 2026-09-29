@@ -56,3 +56,4 @@ export { default as ViewGrid } from './ViewGrid/ViewGrid';
 export { default as ViewList } from './ViewList/ViewList';
 export { default as ViewServers } from './ViewServers/ViewServers';
 export { default as ViewUsers } from './ViewUsers/ViewUsers';
+export { default as RecordBin3D } from './RecordBin3D/RecordBin3D';
