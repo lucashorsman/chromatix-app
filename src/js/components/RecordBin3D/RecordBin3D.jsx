@@ -344,6 +344,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     isDragging: false,
     dragStartX: 0,
     dragStartTarget: 0,
+    lastInteractionTime: performance.now(),
   });
 
   const stateRef = useRef({});
@@ -362,6 +363,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
   };
 
   const goToIndex = useCallback((index) => {
+    posRef.current.lastInteractionTime = performance.now();
     const total = stateRef.current.filteredAlbums?.length || 1;
     const clamped = Math.max(0, Math.min(total - 1, index));
     setSelectedIndex((prev) => {
@@ -464,6 +466,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      posRef.current.lastInteractionTime = performance.now();
       const currentIdx = stateRef.current.selectedIndex;
       const total = stateRef.current.filteredAlbums?.length || 0;
 
@@ -955,6 +958,11 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     };
     const hoveredTrackIndexRef = { current: -1 };
 
+    let currentLiftScale = 1.0;
+    const IDLE_TIMEOUT_MS = 3800;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+
     // Continuous Animation Loop
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
@@ -977,6 +985,21 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       } else {
         cardScrollCurrent.current = cardScrollTarget.current;
       }
+
+      // Dynamic active record elevation with idle-timeout descent
+      const now = performance.now();
+      const isMoving =
+        Math.abs(continuousPos - posRef.current.target) > 0.015 ||
+        posRef.current.isDragging ||
+        cardDragRef.current.isDragging;
+      if (isMoving) {
+        posRef.current.lastInteractionTime = now;
+      }
+
+      const idleElapsed = now - (posRef.current.lastInteractionTime || now);
+      const isIdle = idleElapsed > IDLE_TIMEOUT_MS;
+      const targetLiftScale = isIdle ? 0.0 : 1.0;
+      currentLiftScale += (targetLiftScale - currentLiftScale) * 0.055;
 
       // Turntable animation & physical lever
       if (state.playerPlaying) {
@@ -1132,8 +1155,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         } else {
           // Active record inspected in the center of the crate
           const lift = Math.max(0, 1.0 - Math.abs(delta) * 5.0);
-          targetY = 5.95 + lift * 1.6;
-          targetZ = -delta * 2.2;
+          const effectiveLift = lift * currentLiftScale;
+          targetY = 5.95 + effectiveLift * 6.4;
+          targetZ = 0.7 * effectiveLift - delta * 2.2;
           // When active/raised, face the camera line of sight directly (-0.18 rad)
           // Smoothly tilt forward to +0.22 only as it settles past center into the front stack
           if (delta < 0) {
@@ -1160,6 +1184,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     const canvas = renderer.domElement;
 
     const onPointerDown = (e) => {
+      posRef.current.lastInteractionTime = performance.now();
       const rect = canvas.getBoundingClientRect();
       mouseVector.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouseVector.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
@@ -1196,6 +1221,13 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     };
 
     const onPointerMove = (e) => {
+      const dist = Math.hypot(e.clientX - lastPointerX, e.clientY - lastPointerY);
+      if (dist > 3) {
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+        posRef.current.lastInteractionTime = performance.now();
+      }
+
       const rect = canvas.getBoundingClientRect();
       const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const ny = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
@@ -1282,6 +1314,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     };
 
     const onPointerUp = () => {
+      posRef.current.lastInteractionTime = performance.now();
       if (cardDragRef.current.isDragging) {
         cardDragRef.current.isDragging = false;
         cardDragRef.current.wasDrag = cardDragRef.current.dragDistance > 6;
@@ -1297,6 +1330,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
     const onWheel = (e) => {
       e.preventDefault();
+      posRef.current.lastInteractionTime = performance.now();
 
       const rect = canvas.getBoundingClientRect();
       mouseVector.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1334,6 +1368,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     const mouseVector = new THREE.Vector2();
 
     const onClick = (e) => {
+      posRef.current.lastInteractionTime = performance.now();
       // If pointer was dragged on the card, suppress click
       if (cardDragRef.current.wasDrag) {
         cardDragRef.current.wasDrag = false;
