@@ -590,7 +590,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = isDark ? 1.08 : 1.15;
+    renderer.toneMappingExposure = isDark ? 1.2 : 1.15;
 
     mountRef.current.replaceChildren(renderer.domElement);
 
@@ -631,11 +631,12 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     backdropMesh.position.set(0, 15, -12);
     scene.add(backdropMesh);
 
-    // Natural Conservatory Sunlighting / Night Bioluminescent Moonlighting
-    const ambientLight = new THREE.AmbientLight(isDark ? 0x0c2420 : 0xdcf3ea, isDark ? 1.15 : 1.25);
+    // Ambient light: neutral cool white in dark mode to lift shadows without tinting green
+    const ambientLight = new THREE.AmbientLight(isDark ? 0x354448 : 0xdcf3ea, isDark ? 1.4 : 1.25);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(isDark ? 0x8ef5e7 : 0xfffaec, isDark ? 1.85 : 2.2);
+    // Directional Key Moonlight / Sunlight
+    const sunLight = new THREE.DirectionalLight(isDark ? 0xe2f2ff : 0xfffaec, isDark ? 1.9 : 2.2);
     sunLight.position.set(28, 48, 25);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
@@ -649,51 +650,59 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     sunLight.shadow.bias = -0.0004;
     scene.add(sunLight);
 
-    const forestFillLight = new THREE.DirectionalLight(isDark ? 0x095240 : 0x9ef0df, isDark ? 1.2 : 0.9);
-    forestFillLight.position.set(-28, 24, 15);
-    scene.add(forestFillLight);
+    // Pure neutral White Fill Light from camera view to clearly illuminate album artwork & vinyl
+    const whiteFillLight = new THREE.DirectionalLight(0xffffff, isDark ? 1.75 : 0.6);
+    whiteFillLight.position.set(8, 28, 30);
+    scene.add(whiteFillLight);
 
-    const rimLight = new THREE.DirectionalLight(isDark ? 0x00ffa8 : 0xd0f5ff, isDark ? 1.35 : 0.7);
+    // Left Front Fill specifically for the record bin covers
+    const crateFillLight = new THREE.DirectionalLight(0xffffff, isDark ? 1.3 : 0.5);
+    crateFillLight.position.set(-18, 22, 28);
+    scene.add(crateFillLight);
+
+    // Atmospheric Accent Rim Light
+    const rimLight = new THREE.DirectionalLight(isDark ? 0x66ffd9 : 0xd0f5ff, isDark ? 0.9 : 0.7);
     rimLight.position.set(0, 30, -28);
     scene.add(rimLight);
 
     // Floating Console Console Table (Polished Marble Day / Polished Obsidian Night)
     const consoleMat = new THREE.MeshPhysicalMaterial({
-      color: isDark ? 0x091412 : 0xf5fbf9,
-      roughness: isDark ? 0.12 : 0.1,
-      metalness: isDark ? 0.25 : 0.03,
-      clearcoat: 0.85,
-      clearcoatRoughness: 0.08,
+      color: isDark ? 0x141a18 : 0xf5fbf9,
+      roughness: isDark ? 0.22 : 0.1,
+      metalness: isDark ? 0.15 : 0.03,
+      clearcoat: isDark ? 0.6 : 0.85,
+      clearcoatRoughness: 0.1,
     });
     const consoleMesh = new THREE.Mesh(new THREE.BoxGeometry(118, 2.2, 56), consoleMat);
     consoleMesh.position.set(0, -1.1, 0);
     consoleMesh.receiveShadow = true;
     scene.add(consoleMesh);
 
+    // Glowing undercarriage accent trim (positioned UNDER the console, not on top!)
     const glassTrimMat = new THREE.MeshPhysicalMaterial({
       color: isDark ? 0x00e6a8 : 0x4ee1be,
-      transmission: isDark ? 0.75 : 0.85,
-      roughness: 0.15,
+      transmission: 0.75,
+      roughness: 0.2,
       ior: 1.5,
-      thickness: 0.8,
+      thickness: 0.5,
       transparent: true,
-      opacity: isDark ? 0.92 : 0.85,
+      opacity: isDark ? 0.7 : 0.85,
       emissive: isDark ? 0x004d38 : 0x000000,
-      emissiveIntensity: isDark ? 0.4 : 0,
+      emissiveIntensity: isDark ? 0.35 : 0,
     });
-    const glassTrim = new THREE.Mesh(new THREE.BoxGeometry(118.4, 0.35, 56.4), glassTrimMat);
-    glassTrim.position.set(0, -0.05, 0);
+    const glassTrim = new THREE.Mesh(new THREE.BoxGeometry(118.2, 0.2, 56.2), glassTrimMat);
+    glassTrim.position.set(0, -2.25, 0);
     scene.add(glassTrim);
 
-    // Crystal Acrylic Materials (Clear Day / Smoked Emerald-Tinted Night)
+    // Crystal Acrylic Materials (Clear Day / Smoked Transparent Night)
     const acrylicMat = new THREE.MeshPhysicalMaterial({
-      color: isDark ? 0x0c251e : 0xffffff,
-      transmission: isDark ? 0.82 : 0.94,
-      roughness: isDark ? 0.08 : 0.05,
+      color: isDark ? 0x223530 : 0xffffff,
+      transmission: isDark ? 0.92 : 0.94,
+      roughness: 0.05,
       ior: 1.52,
-      thickness: isDark ? 1.6 : 1.2,
+      thickness: 1.2,
       transparent: true,
-      opacity: isDark ? 0.94 : 0.92,
+      opacity: isDark ? 0.88 : 0.92,
       specularIntensity: 1.0,
     });
 
@@ -771,7 +780,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     turntableGroup.add(vinylRecord);
 
     const centerLabelMat = new THREE.MeshStandardMaterial({
-      color: isDark ? 0x00ffa8 : 0xffffff,
+      color: isDark ? 0x1a2622 : 0xffffff,
       roughness: 0.6,
       metalness: 0.0,
     });
