@@ -72,121 +72,104 @@ function drawRoundRect(ctx, x, y, w, h, r) {
   }
 }
 
-function renderBookletCanvas(canvas, album, tracks, activeTrackId, isPlaying, scrollY = 0, hoveredTrackIdx = -1) {
+function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, scrollY = 0, hoveredTrackIdx = -1) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
   const h = canvas.height;
 
-  // Background: Fine textured cream paper with subtle glass sheen
-  const grad = ctx.createLinearGradient(0, 0, w, h);
-  grad.addColorStop(0, '#f9fcfa');
-  grad.addColorStop(0.5, '#f0f6f3');
-  grad.addColorStop(1, '#e6efe9');
+  // Background: Clean premium frosted card with subtle emerald sheen
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, '#fcfdfd');
+  grad.addColorStop(0.3, '#f5faf7');
+  grad.addColorStop(1, '#e9f4ef');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  // Subtle border
-  ctx.strokeStyle = 'rgba(0, 140, 100, 0.25)';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(4, 4, w - 8, h - 8);
+  // Subtle metallic emerald border
+  ctx.strokeStyle = 'rgba(0, 160, 115, 0.35)';
+  ctx.lineWidth = 5;
+  ctx.strokeRect(5, 5, w - 10, h - 10);
 
-  // Center gatefold spine shadow
-  const spineGrad = ctx.createLinearGradient(w / 2 - 30, 0, w / 2 + 30, 0);
-  spineGrad.addColorStop(0, 'rgba(0, 30, 20, 0)');
-  spineGrad.addColorStop(0.5, 'rgba(0, 30, 20, 0.18)');
-  spineGrad.addColorStop(1, 'rgba(0, 30, 20, 0)');
-  ctx.fillStyle = spineGrad;
-  ctx.fillRect(w / 2 - 30, 0, 60, h);
+  // Top header accent line
+  ctx.fillStyle = '#00b686';
+  ctx.fillRect(5, 5, w - 10, 6);
 
   // -------------------------------------------------------------
-  // LEFT PAGE: ALBUM CREDITS & EDITORIAL NOTES
+  // HEADER: ALBUM METADATA & STATUS (NO FLAVOR TEXT)
   // -------------------------------------------------------------
   ctx.save();
-  ctx.fillStyle = '#008763';
-  ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
-  ctx.fillText(isPlaying ? '● NOW PLAYING' : 'TURNTABLE READY', 50, 75);
 
+  // Status Badge
+  ctx.fillStyle = isPlaying ? '#008763' : '#496d63';
+  ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
+  ctx.fillText(isPlaying ? '● NOW PLAYING' : 'TURNTABLE READY', 48, 52);
+
+  // Album Title
   ctx.fillStyle = '#0b2921';
   ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
   const title = album?.title || 'No Album Selected';
-  const truncTitle = title.length > 22 ? title.slice(0, 22) + '…' : title;
-  ctx.fillText(truncTitle, 50, 130);
+  const truncTitle = title.length > 38 ? title.slice(0, 38) + '…' : title;
+  ctx.fillText(truncTitle, 48, 98);
 
+  // Artist Name
   ctx.fillStyle = '#008763';
-  ctx.font = '600 26px system-ui, -apple-system, sans-serif';
+  ctx.font = '600 24px system-ui, -apple-system, sans-serif';
   const artist = album?.artist || 'Unknown Artist';
-  const truncArtist = artist.length > 26 ? artist.slice(0, 26) + '…' : artist;
-  ctx.fillText(truncArtist, 50, 175);
+  const truncArtist = artist.length > 44 ? artist.slice(0, 44) + '…' : artist;
+  ctx.fillText(truncArtist, 48, 134);
 
-  // Divider
-  ctx.strokeStyle = 'rgba(0, 140, 100, 0.2)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(50, 205);
-  ctx.lineTo(460, 205);
-  ctx.stroke();
-
+  // Release Info & Totals
   ctx.fillStyle = '#496d63';
-  ctx.font = '500 20px system-ui, -apple-system, sans-serif';
+  ctx.font = '500 19px system-ui, -apple-system, sans-serif';
   const yearStr = album?.releaseDate ? formatReleaseYear(album.releaseDate) : 'Vinyl Edition';
   const totalTrks = tracks?.length || album?.totalTracks || 0;
   const tracksStr = `${totalTrks} track${totalTrks === 1 ? '' : 's'}`;
   const durStr = album?.duration ? durationToStringMed(album.duration) : '';
-  ctx.fillText(`${yearStr} • ${tracksStr} ${durStr ? '• ' + durStr : ''}`, 50, 245);
+  const metaLine = [yearStr, tracksStr, durStr].filter(Boolean).join(' • ');
+  ctx.fillText(metaLine, 48, 168);
 
-  ctx.fillStyle = '#5a786f';
-  ctx.font = '18px system-ui, -apple-system, sans-serif';
-  ctx.fillText('Chromatix Conservatory Hi-Fi Audio Suite', 50, 310);
-  ctx.fillText('Mastered for High-Fidelity 33⅓ RPM Playback', 50, 340);
-  ctx.fillText('Natural Glasshouse Acoustic Dispersion', 50, 370);
-
-  // Decorative seal / badge
-  ctx.strokeStyle = '#00b686';
+  // Clean Header Divider
+  ctx.strokeStyle = 'rgba(0, 140, 100, 0.2)';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(100, 440, 32, 0, Math.PI * 2);
+  ctx.moveTo(48, 186);
+  ctx.lineTo(w - 48, 186);
   ctx.stroke();
-  ctx.fillStyle = '#008763';
-  ctx.font = 'bold 12px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('CHROMATIX', 100, 436);
-  ctx.fillText('VINYL', 100, 452);
-  ctx.textAlign = 'left';
-  ctx.restore();
 
   // -------------------------------------------------------------
-  // RIGHT PAGE: INTERACTIVE SCROLLABLE TRACKLIST
+  // TRACKLIST HEADER
   // -------------------------------------------------------------
-  ctx.save();
   ctx.fillStyle = '#008763';
-  ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
-  ctx.fillText('TRACKLIST • CLICK TO PLAY', 550, 68);
+  ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
+  ctx.fillText('TRACKLIST • CLICK SONG TO PLAY', 48, 218);
 
-  const totalTracks = tracks?.length || 0;
-  if (totalTracks > 0) {
+  if (totalTrks > 0) {
     ctx.fillStyle = '#496d63';
-    ctx.font = '600 15px system-ui, sans-serif';
+    ctx.font = '600 17px system-ui, sans-serif';
     ctx.textAlign = 'right';
-    ctx.fillText(`${totalTracks} TRACKS`, 975, 68);
+    ctx.fillText(`${totalTrks} TRACKS`, w - 48, 218);
     ctx.textAlign = 'left';
   }
 
-  const viewportTop = 86;
-  const viewportBottom = 486;
-  const viewportHeight = viewportBottom - viewportTop; // 400px
-  const rowHeight = 44;
-  const maxScroll = Math.max(0, totalTracks * rowHeight - viewportHeight);
+  // -------------------------------------------------------------
+  // INTERACTIVE SCROLLABLE TRACKLIST
+  // -------------------------------------------------------------
+  const viewportTop = 236;
+  const viewportBottom = 1110;
+  const viewportHeight = viewportBottom - viewportTop; // 874px
+  const rowHeight = 56;
+  const maxScroll = Math.max(0, totalTrks * rowHeight - viewportHeight);
   const scrollOffset = Math.max(0, Math.min(maxScroll, scrollY));
 
   if (!tracks || tracks.length === 0) {
     ctx.fillStyle = '#5a786f';
-    ctx.font = 'italic 20px system-ui, sans-serif';
-    ctx.fillText('Loading track details...', 550, 160);
+    ctx.font = 'italic 22px system-ui, sans-serif';
+    ctx.fillText('Loading track details...', 48, 300);
   } else {
     // Clip viewport area for clean scrolling
     ctx.save();
     ctx.beginPath();
-    ctx.rect(535, viewportTop, 450, viewportHeight);
+    ctx.rect(36, viewportTop, w - 72, viewportHeight);
     ctx.clip();
 
     tracks.forEach((trk, idx) => {
@@ -201,84 +184,92 @@ function renderBookletCanvas(canvas, album, tracks, activeTrackId, isPlaying, sc
       if (isTrkActive) {
         ctx.fillStyle = 'rgba(0, 182, 134, 0.22)';
         ctx.beginPath();
-        drawRoundRect(ctx, 540, rowY + 4, 435, 36, 6);
+        drawRoundRect(ctx, 44, rowY + 4, w - 88, 48, 8);
         ctx.fill();
         ctx.strokeStyle = '#00b686';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        drawRoundRect(ctx, 540, rowY + 4, 435, 36, 6);
+        drawRoundRect(ctx, 44, rowY + 4, w - 88, 48, 8);
         ctx.stroke();
       } else if (isTrkHovered) {
-        ctx.fillStyle = 'rgba(0, 182, 134, 0.08)';
+        ctx.fillStyle = 'rgba(0, 182, 134, 0.10)';
         ctx.beginPath();
-        drawRoundRect(ctx, 540, rowY + 4, 435, 36, 6);
+        drawRoundRect(ctx, 44, rowY + 4, w - 88, 48, 8);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0, 182, 134, 0.3)';
+        ctx.strokeStyle = 'rgba(0, 182, 134, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        drawRoundRect(ctx, 44, rowY + 4, w - 88, 48, 8);
+        ctx.stroke();
+      } else {
+        // Subtle divider hairline between normal rows
+        ctx.strokeStyle = 'rgba(0, 140, 100, 0.08)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        drawRoundRect(ctx, 540, rowY + 4, 435, 36, 6);
+        ctx.moveTo(56, rowY + rowHeight);
+        ctx.lineTo(w - 56, rowY + rowHeight);
         ctx.stroke();
       }
 
       // Track Number or Play Indicator
       ctx.fillStyle = isTrkActive ? '#008763' : isTrkHovered ? '#006c4f' : '#496d63';
-      ctx.font = isTrkActive ? 'bold 18px system-ui, sans-serif' : '600 17px system-ui, sans-serif';
+      ctx.font = isTrkActive ? 'bold 22px system-ui, sans-serif' : '600 20px system-ui, sans-serif';
       const numStr = isTrkActive && isPlaying ? '▶' : String(idx + 1).padStart(2, '0');
-      ctx.fillText(numStr, 550, rowY + 28);
+      ctx.fillText(numStr, 58, rowY + 34);
 
       // Track Title
       ctx.fillStyle = isTrkActive ? '#005b42' : isTrkHovered ? '#004331' : '#0b2921';
-      ctx.font = isTrkActive ? 'bold 18px system-ui, sans-serif' : '500 18px system-ui, sans-serif';
+      ctx.font = isTrkActive ? 'bold 22px system-ui, sans-serif' : '500 21px system-ui, sans-serif';
       const rawTitle = trk.title || `Track ${idx + 1}`;
-      const songTitle = rawTitle.length > 25 ? rawTitle.slice(0, 25) + '…' : rawTitle;
-      ctx.fillText(songTitle, 588, rowY + 28);
+      const songTitle = rawTitle.length > 46 ? rawTitle.slice(0, 46) + '…' : rawTitle;
+      ctx.fillText(songTitle, 106, rowY + 34);
 
       // Duration
       ctx.fillStyle = isTrkActive ? '#008763' : '#5a786f';
-      ctx.font = '500 16px system-ui, sans-serif';
+      ctx.font = '500 19px system-ui, sans-serif';
       ctx.textAlign = 'right';
       const dur = trk.duration ? durationToStringMed(trk.duration) : '';
-      ctx.fillText(dur, 965, rowY + 28);
+      ctx.fillText(dur, w - 68, rowY + 34);
       ctx.textAlign = 'left';
     });
 
-    // Top and bottom edge gradient fade for soft transition
+    // Top and bottom edge gradient fade for soft transition when scrolled
     if (scrollOffset > 4) {
-      const topFade = ctx.createLinearGradient(0, viewportTop, 0, viewportTop + 16);
-      topFade.addColorStop(0, '#f2f8f5');
-      topFade.addColorStop(1, 'rgba(242, 248, 245, 0)');
+      const topFade = ctx.createLinearGradient(0, viewportTop, 0, viewportTop + 20);
+      topFade.addColorStop(0, '#f7fbf8');
+      topFade.addColorStop(1, 'rgba(247, 251, 248, 0)');
       ctx.fillStyle = topFade;
-      ctx.fillRect(535, viewportTop, 450, 16);
+      ctx.fillRect(44, viewportTop, w - 88, 20);
     }
     if (scrollOffset < maxScroll - 4) {
-      const btmFade = ctx.createLinearGradient(0, viewportBottom - 16, 0, viewportBottom);
-      btmFade.addColorStop(0, 'rgba(235, 243, 239, 0)');
-      btmFade.addColorStop(1, '#ebf3ef');
+      const btmFade = ctx.createLinearGradient(0, viewportBottom - 20, 0, viewportBottom);
+      btmFade.addColorStop(0, 'rgba(235, 244, 240, 0)');
+      btmFade.addColorStop(1, '#ebf4f0');
       ctx.fillStyle = btmFade;
-      ctx.fillRect(535, viewportBottom - 16, 450, 16);
+      ctx.fillRect(44, viewportBottom - 20, w - 88, 20);
     }
 
     ctx.restore();
 
     // Scrollbar (if content overflows viewport)
     if (maxScroll > 0) {
-      const scrollbarX = 982;
-      const scrollbarWidth = 5;
+      const scrollbarX = w - 52;
+      const scrollbarWidth = 6;
       const scrollbarTrackHeight = viewportHeight;
 
       // Track groove
-      ctx.fillStyle = 'rgba(0, 45, 30, 0.06)';
+      ctx.fillStyle = 'rgba(0, 45, 30, 0.08)';
       ctx.beginPath();
-      drawRoundRect(ctx, scrollbarX, viewportTop, scrollbarWidth, scrollbarTrackHeight, 2.5);
+      drawRoundRect(ctx, scrollbarX, viewportTop, scrollbarWidth, scrollbarTrackHeight, 3);
       ctx.fill();
 
       // Thumb
-      const thumbHeight = Math.max(28, (viewportHeight / (totalTracks * rowHeight)) * scrollbarTrackHeight);
+      const thumbHeight = Math.max(36, (viewportHeight / (totalTrks * rowHeight)) * scrollbarTrackHeight);
       const thumbY = viewportTop + (scrollOffset / maxScroll) * (scrollbarTrackHeight - thumbHeight);
 
-      ctx.fillStyle = 'rgba(0, 160, 110, 0.55)';
+      ctx.fillStyle = 'rgba(0, 160, 110, 0.65)';
       ctx.beginPath();
-      drawRoundRect(ctx, scrollbarX, thumbY, scrollbarWidth, thumbHeight, 2.5);
+      drawRoundRect(ctx, scrollbarX, thumbY, scrollbarWidth, thumbHeight, 3);
       ctx.fill();
     }
   }
@@ -331,6 +322,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
   const mountRef = useRef(null);
 
   const playerPlaying = useSelector(({ playerModel }) => playerModel.playerPlaying);
+  const playerTrackLoaded = useSelector(({ playerModel }) => playerModel.playerTrackLoaded);
   const playingAlbumId = useSelector(({ sessionModel }) => sessionModel.playingAlbumId);
   const playingTrackList = useSelector(({ sessionModel }) => sessionModel.playingTrackList);
   const playingTrackIndex = useSelector(({ sessionModel }) => sessionModel.playingTrackIndex);
@@ -388,6 +380,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     filteredAlbums,
     selectedIndex,
     playerPlaying,
+    playerTrackLoaded,
     playingAlbumId,
     currentAlbum,
     currentPlayingAlbum,
@@ -413,9 +406,14 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
   const handlePlayAlbum = useCallback(() => {
     const alb = stateRef.current.currentAlbum;
     if (!alb) return;
-    if (stateRef.current.playingAlbumId === alb.albumId && stateRef.current.playerPlaying) {
+
+    const isPlaying = stateRef.current.playerPlaying;
+    const isLoaded = stateRef.current.playerTrackLoaded;
+    const isCurrentPlayingAlb = stateRef.current.playingAlbumId === alb.albumId;
+
+    if (isCurrentPlayingAlb && isPlaying) {
       dispatch.playerModel.playerPause();
-    } else if (stateRef.current.playingAlbumId === alb.albumId && !stateRef.current.playerPlaying) {
+    } else if (isCurrentPlayingAlb && !isPlaying && isLoaded) {
       dispatch.playerModel.playerResume();
     } else {
       dispatch.playerModel.playerLoadAlbum({ albumId: alb.albumId });
@@ -450,10 +448,22 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
   );
 
   const handleTogglePlay = useCallback(() => {
-    if (stateRef.current.playerPlaying) {
+    const isPlaying = stateRef.current.playerPlaying;
+    const isLoaded = stateRef.current.playerTrackLoaded;
+    const currentAlb = stateRef.current.currentPlayingAlbum || stateRef.current.currentAlbum;
+
+    if (isPlaying) {
       dispatch.playerModel.playerPause();
-    } else {
+      return;
+    }
+
+    if (isLoaded) {
       dispatch.playerModel.playerResume();
+      return;
+    }
+
+    if (currentAlb) {
+      dispatch.playerModel.playerLoadAlbum({ albumId: currentAlb.albumId });
     }
   }, [dispatch]);
 
@@ -524,12 +534,12 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0xd0e8df, 0.007);
 
-    // SLIGHT 3/4 ANGLE PERSPECTIVE:
-    // Centered turntable at (0, 0, 3.5).
-    // Camera slightly offset (+3.8 units to the right) giving a slight, natural 3/4 hi-fi listening station perspective!
-    const camera = new THREE.PerspectiveCamera(34, width / height, 0.5, 1000);
-    camera.position.set(3.8, 19.2, 36.0);
-    camera.lookAt(0, 5.2, 0);
+    // BALANCED THREE-WING PERSPECTIVE:
+    // Pulled back and angled upward so both wings (crate on left, unified tracklist on right)
+    // and top of records are fully framed and visible without clipping.
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.5, 1000);
+    camera.position.set(0.6, 17.0, 43.0);
+    camera.lookAt(0, 8.0, 1.0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
@@ -825,7 +835,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     // 3. LEFT WING: ACRYLIC RECORD CRATE (BROWSING BIN) + FRONT PLAQUE
     // ==================================================================
     const crateGroup = new THREE.Group();
-    crateGroup.position.set(-16.8, 0, 1.5);
+    crateGroup.position.set(-15.8, 0, 1.5);
 
     const crateBottom = new THREE.Mesh(new THREE.BoxGeometry(15.5, 0.5, 28), acrylicMat);
     crateBottom.position.set(0, 0.25, 0);
@@ -874,42 +884,57 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     scene.add(crateGroup);
 
     // ==================================================================
-    // 4. RIGHT WING: GATEFOLD LINER NOTES BOOKLET (TRACKLIST OPTION B)
+    // 4. RIGHT WING: PROMINENT UNIFIED TRACKLIST CARD
     // ==================================================================
-    const bookletGroup = new THREE.Group();
-    bookletGroup.position.set(16.8, 0.25, 2.2);
-    bookletGroup.rotation.x = -0.22; // Tilted up for comfortable reading angle
-    bookletGroup.rotation.y = -0.16; // Tilted slightly towards the centered turntable
+    const trackCardGroup = new THREE.Group();
+    trackCardGroup.position.set(15.8, 0.25, 2.5);
+    trackCardGroup.rotation.x = -0.15; // Comfortable tilted angle facing camera
+    trackCardGroup.rotation.y = -0.16;
 
-    const bookletCanvas = document.createElement('canvas');
-    bookletCanvas.width = 1024;
-    bookletCanvas.height = 512;
-    renderBookletCanvas(bookletCanvas, currentPlayingAlbum, playingAlbumTracks, currentTrack?.trackId, playerPlaying);
+    const trackCardCanvas = document.createElement('canvas');
+    trackCardCanvas.width = 1024;
+    trackCardCanvas.height = 1100;
+    renderTrackCardCanvas(
+      trackCardCanvas,
+      currentPlayingAlbum,
+      playingAlbumTracks,
+      currentTrack?.trackId,
+      playerPlaying
+    );
 
-    const bookletTex = new THREE.CanvasTexture(bookletCanvas);
-    bookletTex.colorSpace = THREE.SRGBColorSpace;
+    const trackCardTex = new THREE.CanvasTexture(trackCardCanvas);
+    trackCardTex.colorSpace = THREE.SRGBColorSpace;
+    trackCardTex.generateMipmaps = false;
+    trackCardTex.minFilter = THREE.LinearFilter;
+    trackCardTex.magFilter = THREE.LinearFilter;
 
-    const bookletMat = new THREE.MeshStandardMaterial({
-      map: bookletTex,
-      roughness: 0.35,
+    const trackCardMat = new THREE.MeshStandardMaterial({
+      map: trackCardTex,
+      roughness: 0.28,
       metalness: 0.05,
     });
-    const bookletSpineMat = new THREE.MeshStandardMaterial({ color: 0x008763, roughness: 0.6 });
+    const cardEdgeMat = new THREE.MeshStandardMaterial({ color: 0x008763, roughness: 0.5 });
+    const cardBackMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf5fbf9,
+      roughness: 0.15,
+      metalness: 0.05,
+      clearcoat: 0.8,
+    });
 
-    const bookletMesh = new THREE.Mesh(new THREE.BoxGeometry(20.0, 10.0, 0.16), [
-      bookletSpineMat,
-      bookletSpineMat,
-      bookletSpineMat,
-      bookletSpineMat,
-      bookletMat,
-      bookletMat,
+    const trackCardMesh = new THREE.Mesh(new THREE.BoxGeometry(15.2, 17.0, 0.22), [
+      cardEdgeMat,
+      cardEdgeMat,
+      cardEdgeMat,
+      cardEdgeMat,
+      trackCardMat,
+      cardBackMat,
     ]);
-    bookletMesh.position.set(0, 5.0, 0);
-    bookletMesh.castShadow = true;
-    bookletMesh.receiveShadow = true;
-    bookletGroup.add(bookletMesh);
+    trackCardMesh.position.set(0, 8.5, 0);
+    trackCardMesh.castShadow = true;
+    trackCardMesh.receiveShadow = true;
+    trackCardGroup.add(trackCardMesh);
 
-    scene.add(bookletGroup);
+    scene.add(trackCardGroup);
 
     // ==================================================================
     // 5. SLEEVES POOL (Cascading in Left Wing Acrylic Rack)
@@ -947,9 +972,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     let lastAlbumIdForScroll = null;
     let lastActiveTrackIdForScroll = null;
 
-    const bookletScrollTarget = { current: 0 };
-    const bookletScrollCurrent = { current: 0 };
-    const bookletDragRef = {
+    const cardScrollTarget = { current: 0 };
+    const cardScrollCurrent = { current: 0 };
+    const cardDragRef = {
       current: {
         isDragging: false,
         startY: 0,
@@ -976,12 +1001,12 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         continuousPos = posRef.current.target;
       }
 
-      // Smooth inertia scrolling for the booklet tracklist
-      const scrollDiff = bookletScrollTarget.current - bookletScrollCurrent.current;
+      // Smooth inertia scrolling for the tracklist card
+      const scrollDiff = cardScrollTarget.current - cardScrollCurrent.current;
       if (Math.abs(scrollDiff) > 0.05) {
-        bookletScrollCurrent.current += scrollDiff * 0.22;
+        cardScrollCurrent.current += scrollDiff * 0.22;
       } else {
-        bookletScrollCurrent.current = bookletScrollTarget.current;
+        cardScrollCurrent.current = cardScrollTarget.current;
       }
 
       // Turntable animation & physical lever
@@ -1014,20 +1039,20 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         cratePlaqueTex.needsUpdate = true;
       }
 
-      // Update Gatefold Booklet Canvas when playing album, track, scroll, or hover changes
+      // Update Tracklist Card Canvas when playing album, track, scroll, or hover changes
       const playingAlb = state.currentPlayingAlbum;
       const trks = state.playingAlbumTracks || [];
       const curTrk = state.currentTrack;
       const curTrkId = curTrk?.trackId;
       const isPlay = state.playerPlaying;
-      const scrollPos = bookletScrollCurrent.current;
+      const scrollPos = cardScrollCurrent.current;
       const hovIdx = hoveredTrackIndexRef.current;
 
       // Reset scroll if album changed
       if (playingAlb?.albumId !== lastAlbumIdForScroll) {
         lastAlbumIdForScroll = playingAlb?.albumId;
-        bookletScrollTarget.current = 0;
-        bookletScrollCurrent.current = 0;
+        cardScrollTarget.current = 0;
+        cardScrollCurrent.current = 0;
       }
 
       // Auto-scroll to keep active playing track visible when track changes
@@ -1035,16 +1060,16 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         lastActiveTrackIdForScroll = curTrkId;
         const activeIdx = trks.findIndex((t) => t.trackId === curTrkId);
         if (activeIdx !== -1) {
-          const trackTop = activeIdx * 44;
-          const viewportHeight = 400;
-          const maxScroll = Math.max(0, trks.length * 44 - viewportHeight);
-          if (trackTop < bookletScrollTarget.current || trackTop + 44 > bookletScrollTarget.current + viewportHeight) {
-            bookletScrollTarget.current = Math.max(0, Math.min(maxScroll, trackTop - 44));
+          const trackTop = activeIdx * 56;
+          const viewportHeight = 874;
+          const maxScroll = Math.max(0, trks.length * 56 - viewportHeight);
+          if (trackTop < cardScrollTarget.current || trackTop + 56 > cardScrollTarget.current + viewportHeight) {
+            cardScrollTarget.current = Math.max(0, Math.min(maxScroll, trackTop - 56));
           }
         }
       }
 
-      const needsBookletUpdate =
+      const needsCardUpdate =
         playingAlb?.albumId !== lastRenderedPlayingAlbumId ||
         curTrkId !== lastRenderedTrackId ||
         isPlay !== lastRenderedPlayingState ||
@@ -1052,7 +1077,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         Math.abs(scrollPos - lastRenderedScroll) > 0.5 ||
         hovIdx !== lastRenderedHoverIdx;
 
-      if (needsBookletUpdate) {
+      if (needsCardUpdate) {
         lastRenderedPlayingAlbumId = playingAlb?.albumId;
         lastRenderedTrackId = curTrkId;
         lastRenderedPlayingState = isPlay;
@@ -1060,8 +1085,8 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         lastRenderedScroll = scrollPos;
         lastRenderedHoverIdx = hovIdx;
 
-        renderBookletCanvas(bookletCanvas, playingAlb, trks, curTrkId, isPlay, scrollPos, hovIdx);
-        bookletTex.needsUpdate = true;
+        renderTrackCardCanvas(trackCardCanvas, playingAlb, trks, curTrkId, isPlay, scrollPos, hovIdx);
+        trackCardTex.needsUpdate = true;
       }
 
       // The easel showcases the album currently playing!
@@ -1169,16 +1194,27 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       mouseVector.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
       raycaster.setFromCamera(mouseVector, camera);
 
-      const bookletHits = raycaster.intersectObject(bookletMesh, false);
-      if (bookletHits.length > 0) {
-        bookletDragRef.current = {
+      // 1. Check if clicking on the Unified Tracklist Card
+      const cardHits = raycaster.intersectObject(trackCardMesh, false);
+      if (cardHits.length > 0) {
+        cardDragRef.current = {
           isDragging: true,
           startY: e.clientY,
           startX: e.clientX,
-          startScroll: bookletScrollTarget.current,
+          startScroll: cardScrollTarget.current,
           dragDistance: 0,
           wasDrag: false,
         };
+        posRef.current.isDragging = false;
+        return;
+      }
+
+      // 2. Check if clicking Turntable controls, Hero Easel, or Crate Plaque
+      const interactiveHits = raycaster.intersectObjects(
+        [platter, vinylRecord, leverBase, jewelKnob, heroSleeve, cratePlaqueMesh],
+        true
+      );
+      if (interactiveHits.length > 0) {
         posRef.current.isDragging = false;
         return;
       }
@@ -1192,73 +1228,69 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       const rect = canvas.getBoundingClientRect();
       const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const ny = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-      // Slight 3/4 baseline parallax
-      camera.position.x = 3.8 + nx * 2.2;
-      camera.position.y = 19.2 + ny * 1.1;
-      camera.lookAt(0, 5.2, 0);
+      // Subtle baseline parallax
+      camera.position.x = 0.6 + nx * 1.5;
+      camera.position.y = 17.0 + ny * 1.0;
+      camera.position.z = 43.0;
+      camera.lookAt(0, 8.0, 1.0);
 
-      // Handle booklet dragging
-      if (bookletDragRef.current.isDragging) {
-        const deltaY = e.clientY - bookletDragRef.current.startY;
-        const deltaX = e.clientX - bookletDragRef.current.startX;
-        bookletDragRef.current.dragDistance = Math.hypot(deltaX, deltaY);
+      // Handle card dragging (smooth vertical scrolling of tracklist on card surface)
+      if (cardDragRef.current.isDragging) {
+        const deltaY = e.clientY - cardDragRef.current.startY;
+        const deltaX = e.clientX - cardDragRef.current.startX;
+        cardDragRef.current.dragDistance = Math.hypot(deltaX, deltaY);
 
         const trks = stateRef.current.playingAlbumTracks || [];
         const totalTracks = trks.length;
-        const viewportHeight = 400;
-        const rowHeight = 44;
+        const viewportHeight = 874;
+        const rowHeight = 56;
         const maxScroll = Math.max(0, totalTracks * rowHeight - viewportHeight);
 
         if (maxScroll > 0) {
-          const scrollDelta = -deltaY * 1.4;
-          bookletScrollTarget.current = Math.max(
-            0,
-            Math.min(maxScroll, bookletDragRef.current.startScroll + scrollDelta)
-          );
+          const scrollDelta = -deltaY * 1.5;
+          cardScrollTarget.current = Math.max(0, Math.min(maxScroll, cardDragRef.current.startScroll + scrollDelta));
         }
         return;
       }
 
-      // Check hover on booklet tracklist
+      // Check hover on tracklist card
       mouseVector.x = nx;
       mouseVector.y = ny;
       raycaster.setFromCamera(mouseVector, camera);
 
-      const bookletHits = raycaster.intersectObject(bookletMesh, false);
-      if (bookletHits.length > 0 && bookletHits[0].uv) {
-        const uv = bookletHits[0].uv;
-        if (uv.x >= 0.51) {
-          const canvasY = (1 - uv.y) * 512;
-          const viewportTop = 86;
-          const viewportBottom = 486;
-          const rowHeight = 44;
-          const trks = stateRef.current.playingAlbumTracks || [];
+      const cardHits = raycaster.intersectObject(trackCardMesh, false);
+      if (cardHits.length > 0 && cardHits[0].uv) {
+        const uv = cardHits[0].uv;
+        const canvasY = (1 - uv.y) * 1100;
+        const viewportTop = 236;
+        const viewportBottom = 1110;
+        const rowHeight = 56;
+        const trks = stateRef.current.playingAlbumTracks || [];
 
-          if (canvasY >= viewportTop && canvasY <= viewportBottom) {
-            const relY = canvasY - viewportTop + bookletScrollCurrent.current;
-            const hovIdx = Math.floor(relY / rowHeight);
-            if (hovIdx >= 0 && hovIdx < trks.length) {
-              if (hoveredTrackIndexRef.current !== hovIdx) {
-                hoveredTrackIndexRef.current = hovIdx;
-              }
-              canvas.style.cursor = 'pointer';
-            } else {
-              if (hoveredTrackIndexRef.current !== -1) {
-                hoveredTrackIndexRef.current = -1;
-              }
-              canvas.style.cursor = 'default';
+        if (canvasY >= viewportTop && canvasY <= viewportBottom) {
+          const relY = canvasY - viewportTop + cardScrollCurrent.current;
+          const hovIdx = Math.floor(relY / rowHeight);
+          if (hovIdx >= 0 && hovIdx < trks.length) {
+            if (hoveredTrackIndexRef.current !== hovIdx) {
+              hoveredTrackIndexRef.current = hovIdx;
             }
+            canvas.style.cursor = 'pointer';
           } else {
             if (hoveredTrackIndexRef.current !== -1) {
               hoveredTrackIndexRef.current = -1;
             }
             canvas.style.cursor = 'default';
           }
-        } else {
+        } else if (canvasY < viewportTop) {
           if (hoveredTrackIndexRef.current !== -1) {
             hoveredTrackIndexRef.current = -1;
           }
           canvas.style.cursor = 'pointer';
+        } else {
+          if (hoveredTrackIndexRef.current !== -1) {
+            hoveredTrackIndexRef.current = -1;
+          }
+          canvas.style.cursor = 'default';
         }
       } else {
         if (hoveredTrackIndexRef.current !== -1) {
@@ -1277,9 +1309,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     };
 
     const onPointerUp = () => {
-      if (bookletDragRef.current.isDragging) {
-        bookletDragRef.current.isDragging = false;
-        bookletDragRef.current.wasDrag = bookletDragRef.current.dragDistance > 6;
+      if (cardDragRef.current.isDragging) {
+        cardDragRef.current.isDragging = false;
+        cardDragRef.current.wasDrag = cardDragRef.current.dragDistance > 6;
       }
 
       if (posRef.current.isDragging) {
@@ -1298,17 +1330,17 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       mouseVector.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
       raycaster.setFromCamera(mouseVector, camera);
 
-      // Check if mouse is over the booklet
-      const bookletHits = raycaster.intersectObject(bookletMesh, false);
-      if (bookletHits.length > 0 && bookletHits[0].uv) {
+      // Check if mouse is over the tracklist card
+      const cardHits = raycaster.intersectObject(trackCardMesh, false);
+      if (cardHits.length > 0 && cardHits[0].uv) {
         const trks = stateRef.current.playingAlbumTracks || [];
         const totalTracks = trks.length;
-        const viewportHeight = 400;
-        const rowHeight = 44;
+        const viewportHeight = 874;
+        const rowHeight = 56;
         const maxScroll = Math.max(0, totalTracks * rowHeight - viewportHeight);
 
         if (maxScroll > 0) {
-          bookletScrollTarget.current = Math.max(0, Math.min(maxScroll, bookletScrollTarget.current + e.deltaY * 0.85));
+          cardScrollTarget.current = Math.max(0, Math.min(maxScroll, cardScrollTarget.current + e.deltaY * 0.9));
         }
         return;
       }
@@ -1329,9 +1361,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     const mouseVector = new THREE.Vector2();
 
     const onClick = (e) => {
-      // If pointer was dragged on the booklet, suppress click
-      if (bookletDragRef.current.wasDrag) {
-        bookletDragRef.current.wasDrag = false;
+      // If pointer was dragged on the card, suppress click
+      if (cardDragRef.current.wasDrag) {
+        cardDragRef.current.wasDrag = false;
         return;
       }
 
@@ -1365,38 +1397,34 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         return;
       }
 
-      // 4. Check if clicking Gatefold Liner Notes Booklet (Tracklist Option B)
-      const bookletHits = raycaster.intersectObject(bookletMesh, false);
-      if (bookletHits.length > 0) {
-        const hit = bookletHits[0];
+      // 4. Check if clicking Unified Tracklist Card
+      const cardHits = raycaster.intersectObject(trackCardMesh, false);
+      if (cardHits.length > 0) {
+        const hit = cardHits[0];
         if (hit.uv) {
-          const uvX = hit.uv.x;
           const uvY = hit.uv.y;
+          const canvasY = (1 - uvY) * 1100;
+          const viewportTop = 236;
+          const viewportBottom = 1110;
+          const rowHeight = 56;
+          const trks = stateRef.current.playingAlbumTracks || [];
 
-          // If clicking on the right page (Tracklist area: x >= 0.51)
-          if (uvX >= 0.51) {
-            const canvasY = (1 - uvY) * 512;
-            const viewportTop = 86;
-            const viewportBottom = 486;
-            const rowHeight = 44;
-            const trks = stateRef.current.playingAlbumTracks || [];
+          if (canvasY >= viewportTop && canvasY <= viewportBottom) {
+            const currentScroll = cardScrollCurrent.current;
+            const relativeY = canvasY - viewportTop + currentScroll;
+            const clickedIdx = Math.floor(relativeY / rowHeight);
 
-            if (canvasY >= viewportTop && canvasY <= viewportBottom) {
-              const currentScroll = bookletScrollCurrent.current;
-              const relativeY = canvasY - viewportTop + currentScroll;
-              const clickedIdx = Math.floor(relativeY / rowHeight);
-
-              if (clickedIdx >= 0 && clickedIdx < trks.length) {
-                handlePlayTrack(clickedIdx);
-                return;
-              }
+            if (clickedIdx >= 0 && clickedIdx < trks.length) {
+              handlePlayTrack(clickedIdx);
+              return;
             }
-          } else {
-            // Clicking left page toggles album play/pause
+          } else if (canvasY < viewportTop) {
+            // Clicking header toggles album play/pause
             handleTogglePlay();
             return;
           }
         }
+        return;
       }
 
       // 5. Check if clicking a record in the crate
@@ -1445,7 +1473,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       textureCache.forEach((tex) => tex.dispose());
       bgTex.dispose();
       cratePlaqueTex.dispose();
-      bookletTex.dispose();
+      trackCardTex.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [albums, handlePlayAlbum, handleTogglePlay, handlePlayTrack, goToIndex]);
@@ -1474,7 +1502,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
             <Icon icon="GridIcon" size={16} stroke />
             <span>Grid View</span>
           </button>
-          <span className={style.crateTitleBadge}>{filteredAlbums.length} Records in Conservatory</span>
+          <span className={style.crateTitleBadge}>{filteredAlbums.length} Records</span>
         </div>
 
         {/* Frutiger Aero Glass Search Pill */}
@@ -1482,7 +1510,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           <Icon icon="SearchIcon" size={15} stroke />
           <input
             type="text"
-            placeholder="Search conservatory bin..."
+            placeholder="Search records..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
