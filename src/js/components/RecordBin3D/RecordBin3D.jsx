@@ -613,7 +613,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         continuousPos = posRef.current.target;
       }
 
-      // Turntable animation
+      // Turntable animation & vinyl disc motion
       if (state.playerPlaying) {
         platter.rotation.y -= 0.035;
         vinylRecord.rotation.y -= 0.035;
@@ -621,17 +621,22 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         heroVinyl.rotation.y -= 0.035;
         heroLabel.rotation.y -= 0.035;
         targetArmRotation = 0.36;
+        heroVinyl.position.x = 3.4;
+        heroLabel.position.x = 3.4;
       } else {
         targetArmRotation = 0.05;
+        heroVinyl.position.x = 1.2;
+        heroLabel.position.x = 1.2;
       }
       currentArmRotation += (targetArmRotation - currentArmRotation) * 0.08;
       armPivotGroup.rotation.y = currentArmRotation;
 
-      // Update Hero Easel Album Artwork
-      const activeAlb = filtered[state.selectedIndex] || filtered[0];
-      const activeThumb = activeAlb?.thumbMd || activeAlb?.thumbSm;
-      if (activeThumb) {
-        const tex = getTexture(activeThumb);
+      // The easel showcases the album currently playing! (falls back to selected if none playing yet)
+      const currentPlayingAlbum = albums.find((a) => a.albumId === state.playingAlbumId);
+      const easelAlbum = currentPlayingAlbum || filtered[state.selectedIndex] || filtered[0];
+      const easelThumb = easelAlbum?.thumbMd || easelAlbum?.thumbSm;
+      if (easelThumb) {
+        const tex = getTexture(easelThumb);
         if (tex) {
           if (heroFrontMat.map !== tex) {
             heroFrontMat.map = tex;
@@ -648,8 +653,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         }
       }
 
-      // Turntable center label texture
-      const currentPlayingAlbum = albums.find((a) => a.albumId === state.playingAlbumId);
+      // Turntable center label texture (uses the same currently playing album)
       const playingThumb = currentPlayingAlbum?.thumbMd || currentPlayingAlbum?.thumbSm;
       if (playingThumb) {
         const tex = getTexture(playingThumb);
@@ -790,10 +794,14 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       mouseVector.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
       raycaster.setFromCamera(mouseVector, camera);
 
-      // Check if clicking Hero Easel
+      // Check if clicking Hero Easel (toggle playback of current playing album)
       const heroHits = raycaster.intersectObject(heroSleeve, false);
       if (heroHits.length > 0) {
-        handlePlayAlbum();
+        if (stateRef.current.playingAlbumId) {
+          handleTogglePlay();
+        } else {
+          handlePlayAlbum();
+        }
         return;
       }
 
@@ -843,7 +851,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       textureCache.forEach((tex) => tex.dispose());
       bgTex.dispose();
     };
-  }, [albums, handlePlayAlbum, goToIndex]);
+  }, [albums, handlePlayAlbum, handleTogglePlay, goToIndex]);
 
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
   const handleAZClick = (letter) => {
