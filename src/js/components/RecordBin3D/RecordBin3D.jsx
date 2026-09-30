@@ -104,6 +104,24 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
   ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
   ctx.fillText(isPlaying ? '● NOW PLAYING' : 'TURNTABLE READY', 48, 52);
 
+  // Download Pill Button in Card Header
+  const dlHovered = hoveredTrackIdx === -2;
+  ctx.fillStyle = dlHovered ? 'rgba(0, 182, 134, 0.28)' : 'rgba(0, 182, 134, 0.12)';
+  ctx.beginPath();
+  drawRoundRect(ctx, w - 198, 26, 150, 36, 18);
+  ctx.fill();
+  ctx.strokeStyle = dlHovered ? '#008763' : '#00b686';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  drawRoundRect(ctx, w - 198, 26, 150, 36, 18);
+  ctx.stroke();
+
+  ctx.fillStyle = '#008763';
+  ctx.font = 'bold 15px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('⬇ DOWNLOAD', w - 123, 49);
+  ctx.textAlign = 'left';
+
   // Album Title
   ctx.fillStyle = '#0b2921';
   ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
@@ -333,6 +351,10 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
   const allAlbumTracks = useSelector(({ appModel }) => appModel.allAlbumTracks);
   const currentTrack = playingTrackList?.[playingTrackKeys[playingTrackIndex]];
 
+  const downloaderState = useSelector(({ downloaderModel }) => downloaderModel || {});
+  const isDownloading = downloaderState.isDownloading;
+  const downloadProgress = downloaderState.progress;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -475,6 +497,15 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     dispatch.playerModel.playerPrevTrack();
   }, [dispatch]);
 
+  const handleOpenDownload = useCallback(() => {
+    const alb = stateRef.current.currentPlayingAlbum || stateRef.current.currentAlbum;
+    const defaultQuery = alb ? `${alb.title} - ${alb.artist}` : '';
+    dispatch.dialogModel.showModal({
+      modal: 'DownloadAlbum',
+      data: { defaultQuery },
+    });
+  }, [dispatch]);
+
   const handleExit = useCallback(() => {
     if (onExit) onExit();
     else dispatch.sessionModel.setSessionState({ viewAlbums: 'grid' });
@@ -511,6 +542,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       } else if (e.key === 'Enter') {
         e.preventDefault();
         handlePlayAlbum();
+      } else if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        handleOpenDownload();
       } else if (e.key === 'Escape') {
         handleExit();
       }
@@ -518,7 +552,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToIndex, handleTogglePlay, handlePlayAlbum, handleExit]);
+  }, [goToIndex, handleTogglePlay, handlePlayAlbum, handleOpenDownload, handleExit]);
 
   // ======================================================================
   // THREE.JS GLASSHOUSE FOREST CONSERVATORY SCENE
@@ -1261,7 +1295,18 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       const cardHits = raycaster.intersectObject(trackCardMesh, false);
       if (cardHits.length > 0 && cardHits[0].uv) {
         const uv = cardHits[0].uv;
+        const canvasX = uv.x * 1024;
         const canvasY = (1 - uv.y) * 1100;
+
+        // Check hover on Download pill on card
+        if (canvasY >= 24 && canvasY <= 66 && canvasX >= 820 && canvasX <= 982) {
+          if (hoveredTrackIndexRef.current !== -2) {
+            hoveredTrackIndexRef.current = -2;
+          }
+          canvas.style.cursor = 'pointer';
+          return;
+        }
+
         const viewportTop = 236;
         const viewportBottom = 1110;
         const rowHeight = 56;
@@ -1402,8 +1447,17 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       if (cardHits.length > 0) {
         const hit = cardHits[0];
         if (hit.uv) {
+          const uvX = hit.uv.x;
           const uvY = hit.uv.y;
+          const canvasX = uvX * 1024;
           const canvasY = (1 - uvY) * 1100;
+
+          // Check if clicking Download pill on card
+          if (canvasY >= 24 && canvasY <= 66 && canvasX >= 820 && canvasX <= 982) {
+            handleOpenDownload();
+            return;
+          }
+
           const viewportTop = 236;
           const viewportBottom = 1110;
           const rowHeight = 56;
@@ -1502,6 +1556,15 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
             <Icon icon="GridIcon" size={16} stroke />
             <span>Grid View</span>
           </button>
+          <button
+            type="button"
+            className={clsx(style.downloadButton, { [style.activeDownloading]: isDownloading })}
+            onClick={handleOpenDownload}
+            title={isDownloading ? 'Download in progress — click to view' : 'Download Album to Library (D)'}
+          >
+            <Icon icon="DownloadIcon" size={16} stroke />
+            <span>{isDownloading ? downloadProgress?.percent || 'Downloading…' : 'Download'}</span>
+          </button>
           <span className={style.crateTitleBadge}>{filteredAlbums.length} Records</span>
         </div>
 
@@ -1558,6 +1621,14 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           </div>
 
           <div className={style.mediaControls}>
+            <button
+              type="button"
+              className={clsx(style.mediaBtn, { [style.mediaBtnActive]: isDownloading })}
+              onClick={handleOpenDownload}
+              title={isDownloading ? 'View Active Download' : 'Download Album (D)'}
+            >
+              <Icon icon="DownloadIcon" size={14} stroke />
+            </button>
             <button className={style.mediaBtn} onClick={handlePrevTrack} title="Previous Track">
               <Icon icon="TrackSkipPrevIcon" size={14} stroke />
             </button>

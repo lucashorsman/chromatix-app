@@ -20,6 +20,7 @@ const DownloadAlbum = () => {
   const dispatch = useDispatch();
   const currentLibrary = useSelector(({ sessionModel }) => sessionModel.currentLibrary);
   const currentService = useSelector(({ appModel }) => appModel.currentService);
+  const currentModalData = useSelector(({ dialogModel }) => dialogModel.currentModalData);
 
   const {
     isDownloading,
@@ -29,7 +30,7 @@ const DownloadAlbum = () => {
     error,
   } = useSelector(({ downloaderModel }) => downloaderModel || {});
 
-  const [inputUrl, setInputUrl] = useState(savedUrl || '');
+  const [inputUrl, setInputUrl] = useState(savedUrl || currentModalData?.url || '');
 
   const handleStart = () => {
     if (!inputUrl.trim()) return;
@@ -117,6 +118,11 @@ const DownloadAlbum = () => {
                 if (e.key === 'Enter' && !isDownloading) handleStart();
               }}
             />
+            {currentModalData?.defaultQuery && !inputUrl && (
+              <span className={style.suggestedQuery}>
+                Target Album: <strong>{currentModalData.defaultQuery}</strong>
+              </span>
+            )}
           </div>
 
           <div>
