@@ -15,7 +15,7 @@ import * as bridge from 'js/services/bridge';
 import style from './RecordBin3D.module.scss';
 
 // ======================================================================
-// AUDIO CUES & PROCEDURAL TEXTURES
+// AUDIO CUES & IMAGE PROXY
 // ======================================================================
 
 let audioCtx = null;
@@ -31,11 +31,11 @@ function playFlipSound() {
     const filter = audioCtx.createBiquadFilter();
 
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(140, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.05);
+    osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(45, audioCtx.currentTime + 0.05);
 
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(400, audioCtx.currentTime);
+    filter.frequency.setValueAtTime(450, audioCtx.currentTime);
 
     gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
@@ -49,38 +49,6 @@ function playFlipSound() {
   } catch (_e) {
     /* ignore */
   }
-}
-
-function createProceduralWoodTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext('2d');
-
-  const grad = ctx.createLinearGradient(0, 0, 512, 512);
-  grad.addColorStop(0, '#28170e');
-  grad.addColorStop(0.5, '#382114');
-  grad.addColorStop(1, '#1e1008');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 512, 512);
-
-  ctx.fillStyle = 'rgba(15, 8, 4, 0.15)';
-  for (let y = 0; y < 512; y += 3) {
-    const wave = Math.sin(y * 0.04) * 6 + Math.cos(y * 0.015) * 10;
-    ctx.fillRect(0, y + wave, 512, 1.4);
-  }
-
-  const radial = ctx.createRadialGradient(256, 256, 50, 256, 256, 360);
-  radial.addColorStop(0, 'rgba(255, 220, 180, 0.06)');
-  radial.addColorStop(1, 'rgba(0, 0, 0, 0.25)');
-  ctx.fillStyle = radial;
-  ctx.fillRect(0, 0, 512, 512);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(3, 3);
-  return texture;
 }
 
 const getProxiedImageUrl = (url) => {
@@ -218,7 +186,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     else dispatch.sessionModel.setSessionState({ viewAlbums: 'grid' });
   }, [onExit, dispatch]);
 
-  // Robust global keyboard navigation for seamless arrow key navigation
+  // Robust global keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
@@ -258,7 +226,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [goToIndex, handleTogglePlay, handlePlayAlbum, handleExit]);
 
-  // Three.js Lifecycle
+  // ======================================================================
+  // THREE.JS GLASSHOUSE FOREST CONSERVATORY SCENE
+  // ======================================================================
   useEffect(() => {
     if (!mountRef.current) return;
 
@@ -267,12 +237,15 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     const height = mountRef.current.clientHeight || window.innerHeight;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x100c0a, 0.012);
+    scene.fog = new THREE.FogExp2(0xd0e8df, 0.007);
 
-    // Optimized camera angle looking down into the crate so active record is 100% visible
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.5, 1000);
-    camera.position.set(-2, 20, 35);
-    camera.lookAt(-2, 5.0, 0);
+    // Camera angled to see:
+    // Left: Dedicated Glass Display Easel (Hero Active Album, 100% unblocked)
+    // Center: Transparent Acrylic Crate Rack with collection
+    // Right: Frosted Acrylic & Chrome Turntable
+    const camera = new THREE.PerspectiveCamera(34, width / height, 0.5, 1000);
+    camera.position.set(0.5, 18, 38);
+    camera.lookAt(0.5, 5.5, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
@@ -302,148 +275,297 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       return tex;
     };
 
-    const ambientLight = new THREE.AmbientLight(0xffeedd, 0.95);
+    // Load High-Res Forest Conservatory Panorama
+    const bgTex = textureLoader.load('/images/conservatory-bg.jpg', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.mapping = THREE.EquirectangularReflectionMapping;
+      scene.background = tex;
+    });
+
+    // Curved Panorama Cylinder in background for continuous physical depth
+    const backdropGeo = new THREE.CylinderGeometry(85, 85, 55, 48, 1, true, -Math.PI * 0.75, Math.PI * 1.5);
+    const backdropMat = new THREE.MeshBasicMaterial({
+      map: bgTex,
+      side: THREE.BackSide,
+      depthWrite: false,
+    });
+    const backdropMesh = new THREE.Mesh(backdropGeo, backdropMat);
+    backdropMesh.position.set(0, 15, -12);
+    scene.add(backdropMesh);
+
+    // Natural Conservatory Sunlighting
+    const ambientLight = new THREE.AmbientLight(0xdcf3ea, 1.25);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfff4e2, 1.8);
-    sunLight.position.set(30, 48, 28);
+    const sunLight = new THREE.DirectionalLight(0xfffaec, 2.2);
+    sunLight.position.set(28, 48, 25);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 1;
     sunLight.shadow.camera.far = 130;
-    sunLight.shadow.camera.left = -28;
-    sunLight.shadow.camera.right = 28;
-    sunLight.shadow.camera.top = 28;
-    sunLight.shadow.camera.bottom = -28;
-    sunLight.shadow.bias = -0.0005;
+    sunLight.shadow.camera.left = -30;
+    sunLight.shadow.camera.right = 30;
+    sunLight.shadow.camera.top = 30;
+    sunLight.shadow.camera.bottom = -30;
+    sunLight.shadow.bias = -0.0004;
     scene.add(sunLight);
 
-    const crateSpot = new THREE.SpotLight(0xffd5b0, 1.9, 65, Math.PI / 3.8, 0.45, 1.2);
-    crateSpot.position.set(-7, 28, 16);
-    crateSpot.target.position.set(-8, 5, 0);
-    scene.add(crateSpot);
+    const forestFillLight = new THREE.DirectionalLight(0x9ef0df, 0.9);
+    forestFillLight.position.set(-28, 24, 15);
+    scene.add(forestFillLight);
 
-    const rimLight = new THREE.DirectionalLight(0x7fb2ff, 0.5);
-    rimLight.position.set(-20, 20, -25);
+    const rimLight = new THREE.DirectionalLight(0xd0f5ff, 0.7);
+    rimLight.position.set(0, 30, -28);
     scene.add(rimLight);
 
-    // Warm studio table
-    const deskWoodTexture = createProceduralWoodTexture();
-    const tableMat = new THREE.MeshStandardMaterial({
-      map: deskWoodTexture,
-      roughness: 0.38,
-      metalness: 0.04,
+    // Floating Polished White Carrara Marble Console with Glass Edge Trim
+    const consoleMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf5fbf9,
+      roughness: 0.1,
+      metalness: 0.03,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.08,
     });
-    const tableTop = new THREE.Mesh(new THREE.BoxGeometry(110, 2, 70), tableMat);
-    tableTop.position.set(0, -1, 0);
-    tableTop.receiveShadow = true;
-    scene.add(tableTop);
+    const consoleMesh = new THREE.Mesh(new THREE.BoxGeometry(112, 2.2, 56), consoleMat);
+    consoleMesh.position.set(0, -1.1, 0);
+    consoleMesh.receiveShadow = true;
+    scene.add(consoleMesh);
 
-    // Record Crate
-    const crateGroup = new THREE.Group();
-    crateGroup.position.set(-8.5, 0, 0);
-
-    const crateWoodMat = new THREE.MeshStandardMaterial({
-      color: 0x54351f,
-      roughness: 0.72,
-      metalness: 0.02,
+    // Frosted Cyan Acrylic Trim
+    const glassTrimMat = new THREE.MeshPhysicalMaterial({
+      color: 0x4ee1be,
+      transmission: 0.85,
+      roughness: 0.15,
+      ior: 1.5,
+      thickness: 0.8,
+      transparent: true,
+      opacity: 0.85,
     });
-    const brassMat = new THREE.MeshStandardMaterial({
-      color: 0xc9a458,
-      roughness: 0.35,
-      metalness: 0.8,
+    const glassTrim = new THREE.Mesh(new THREE.BoxGeometry(112.4, 0.35, 56.4), glassTrimMat);
+    glassTrim.position.set(0, -0.05, 0);
+    scene.add(glassTrim);
+
+    // Frutiger Aero Crystal Acrylic Material for Easel & Rack
+    const acrylicMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      transmission: 0.94,
+      roughness: 0.05,
+      ior: 1.52,
+      thickness: 1.2,
+      transparent: true,
+      opacity: 0.92,
+      specularIntensity: 1.0,
     });
 
-    const crateBottom = new THREE.Mesh(new THREE.BoxGeometry(15.5, 0.6, 32), crateWoodMat);
-    crateBottom.position.set(0, 0.3, 0);
-    crateBottom.receiveShadow = true;
-    crateGroup.add(crateBottom);
+    const chromeMat = new THREE.MeshStandardMaterial({
+      color: 0xf0f0f0,
+      roughness: 0.12,
+      metalness: 0.95,
+    });
 
-    const leftSide = new THREE.Mesh(new THREE.BoxGeometry(0.8, 8.5, 32), crateWoodMat);
-    leftSide.position.set(-7.75, 4.5, 0);
-    leftSide.castShadow = true;
-    leftSide.receiveShadow = true;
-    crateGroup.add(leftSide);
+    const vinylMat = new THREE.MeshStandardMaterial({
+      color: 0x111111,
+      roughness: 0.22,
+      metalness: 0.45,
+    });
 
-    const rightSide = new THREE.Mesh(new THREE.BoxGeometry(0.8, 8.5, 32), crateWoodMat);
-    rightSide.position.set(7.75, 4.5, 0);
-    rightSide.castShadow = true;
-    rightSide.receiveShadow = true;
-    crateGroup.add(rightSide);
+    // ==================================================================
+    // 1. HERO DISPLAY EASEL (Active Record Display: 100% UNBLOCKED ART)
+    // ==================================================================
+    const easelGroup = new THREE.Group();
+    easelGroup.position.set(-8.8, 0, 4.0);
 
-    // Low front rim so active record cover art is never clipped
-    const frontSide = new THREE.Mesh(new THREE.BoxGeometry(16.3, 3.2, 0.8), crateWoodMat);
-    frontSide.position.set(0, 1.9, 16);
-    frontSide.castShadow = true;
-    frontSide.receiveShadow = true;
-    crateGroup.add(frontSide);
+    // Crystal acrylic base footer
+    const easelBase = new THREE.Mesh(new THREE.BoxGeometry(14.2, 0.6, 9.5), acrylicMat);
+    easelBase.position.set(0, 0.3, 0);
+    easelBase.castShadow = true;
+    easelBase.receiveShadow = true;
+    easelGroup.add(easelBase);
 
-    const backSide = new THREE.Mesh(new THREE.BoxGeometry(16.3, 8.5, 0.8), crateWoodMat);
-    backSide.position.set(0, 4.5, -16);
-    backSide.castShadow = true;
-    backSide.receiveShadow = true;
-    crateGroup.add(backSide);
+    // Two tilted acrylic uprights supporting the record
+    const easelUprightLeft = new THREE.Mesh(new THREE.BoxGeometry(0.8, 14.0, 0.6), acrylicMat);
+    easelUprightLeft.position.set(-4.5, 7.0, -1.0);
+    easelUprightLeft.rotation.x = -0.14; // tilted back ~8 deg
+    easelUprightLeft.castShadow = true;
+    easelGroup.add(easelUprightLeft);
 
-    const namePlate = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.6, 0.1), brassMat);
-    namePlate.position.set(0, 2.1, 16.45);
-    namePlate.castShadow = true;
-    crateGroup.add(namePlate);
+    const easelUprightRight = new THREE.Mesh(new THREE.BoxGeometry(0.8, 14.0, 0.6), acrylicMat);
+    easelUprightRight.position.set(4.5, 7.0, -1.0);
+    easelUprightRight.rotation.x = -0.14;
+    easelUprightRight.castShadow = true;
+    easelGroup.add(easelUprightRight);
 
-    scene.add(crateGroup);
+    // Acrylic retaining shelf lip
+    const easelLip = new THREE.Mesh(new THREE.BoxGeometry(14.0, 1.2, 0.8), acrylicMat);
+    easelLip.position.set(0, 0.9, 3.6);
+    easelLip.castShadow = true;
+    easelGroup.add(easelLip);
 
-    // Turntable
+    // Chrome accent badge on easel shelf
+    const easelBadge = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.6, 0.1), chromeMat);
+    easelBadge.position.set(0, 0.9, 4.05);
+    easelBadge.castShadow = true;
+    easelGroup.add(easelBadge);
+
+    // The Hero Record Sleeve on the Easel (Large 12.4 x 12.4, completely unobstructed)
+    const sleeveGeometry = new THREE.BoxGeometry(12.4, 12.4, 0.2);
+    const heroSpineMat = new THREE.MeshStandardMaterial({ color: 0x22332e, roughness: 0.7 });
+    const heroFrontMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.02 });
+    const heroBackMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.02 });
+
+    const heroSleeve = new THREE.Mesh(sleeveGeometry, [
+      heroSpineMat,
+      heroSpineMat,
+      heroSpineMat,
+      heroSpineMat,
+      heroFrontMat,
+      heroBackMat,
+    ]);
+    heroSleeve.position.set(0, 7.2, 0.2);
+    heroSleeve.rotation.x = -0.14; // Angled back gently directly facing the viewer
+    heroSleeve.castShadow = true;
+    heroSleeve.receiveShadow = true;
+    easelGroup.add(heroSleeve);
+
+    // Vinyl disc peeking out of the hero sleeve
+    const heroVinyl = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 0.04, 48), vinylMat);
+    heroVinyl.rotation.x = Math.PI / 2;
+    heroVinyl.position.set(3.4, 2.2, -0.05);
+    heroSleeve.add(heroVinyl);
+
+    const heroLabelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.0 });
+    const heroLabel = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.05, 32), heroLabelMat);
+    heroLabel.rotation.x = Math.PI / 2;
+    heroLabel.position.set(3.4, 2.2, -0.03);
+    heroSleeve.add(heroLabel);
+
+    scene.add(easelGroup);
+
+    // ==================================================================
+    // 2. TRANSPARENT ACRYLIC RECORD RACK (Adjacent Collection Bin)
+    // ==================================================================
+    const rackGroup = new THREE.Group();
+    rackGroup.position.set(7.2, 0, 0);
+
+    const rackBottom = new THREE.Mesh(new THREE.BoxGeometry(15.5, 0.5, 30), acrylicMat);
+    rackBottom.position.set(0, 0.25, 0);
+    rackBottom.receiveShadow = true;
+    rackGroup.add(rackBottom);
+
+    const rackLeftSide = new THREE.Mesh(new THREE.BoxGeometry(0.7, 8.5, 30), acrylicMat);
+    rackLeftSide.position.set(-7.75, 4.5, 0);
+    rackLeftSide.castShadow = true;
+    rackLeftSide.receiveShadow = true;
+    rackGroup.add(rackLeftSide);
+
+    const rackRightSide = new THREE.Mesh(new THREE.BoxGeometry(0.7, 8.5, 30), acrylicMat);
+    rackRightSide.position.set(7.75, 4.5, 0);
+    rackRightSide.castShadow = true;
+    rackRightSide.receiveShadow = true;
+    rackGroup.add(rackRightSide);
+
+    // Low front lip
+    const rackFront = new THREE.Mesh(new THREE.BoxGeometry(16.2, 2.5, 0.7), acrylicMat);
+    rackFront.position.set(0, 1.5, 15);
+    rackFront.castShadow = true;
+    rackFront.receiveShadow = true;
+    rackGroup.add(rackFront);
+
+    const rackBack = new THREE.Mesh(new THREE.BoxGeometry(16.2, 8.5, 0.7), acrylicMat);
+    rackBack.position.set(0, 4.5, -15);
+    rackBack.castShadow = true;
+    rackBack.receiveShadow = true;
+    rackGroup.add(rackBack);
+
+    // Chrome support rails running down the rack
+    const railLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 30, 16), chromeMat);
+    railLeft.rotation.x = Math.PI / 2;
+    railLeft.position.set(-6.8, 0.7, 0);
+    rackGroup.add(railLeft);
+
+    const railRight = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 30, 16), chromeMat);
+    railRight.rotation.x = Math.PI / 2;
+    railRight.position.set(6.8, 0.7, 0);
+    rackGroup.add(railRight);
+
+    scene.add(rackGroup);
+
+    // ==================================================================
+    // 3. MODERN ACRYLIC & CHROME TURNTABLE
+    // ==================================================================
     const turntableGroup = new THREE.Group();
-    turntableGroup.position.set(18.5, 0, 0);
+    turntableGroup.position.set(23.5, 0, 0);
 
-    const ttBaseMat = new THREE.MeshStandardMaterial({ color: 0x281912, roughness: 0.5, metalness: 0.15 });
-    const ttBase = new THREE.Mesh(new THREE.BoxGeometry(19, 2.2, 16), ttBaseMat);
-    ttBase.position.set(0, 1.1, 0);
+    // Frosted acrylic plinth with chrome edge
+    const ttBaseMat = new THREE.MeshPhysicalMaterial({
+      color: 0xddf8f2,
+      transmission: 0.9,
+      roughness: 0.08,
+      ior: 1.5,
+      thickness: 1.5,
+      transparent: true,
+      opacity: 0.92,
+    });
+    const ttBase = new THREE.Mesh(new THREE.BoxGeometry(17.5, 2.0, 15), ttBaseMat);
+    ttBase.position.set(0, 1.0, 0);
     ttBase.castShadow = true;
     ttBase.receiveShadow = true;
     turntableGroup.add(ttBase);
 
-    const topPlateMat = new THREE.MeshStandardMaterial({ color: 0x909090, roughness: 0.35, metalness: 0.7 });
-    const topPlate = new THREE.Mesh(new THREE.BoxGeometry(18.2, 0.1, 15.2), topPlateMat);
-    topPlate.position.set(0, 2.25, 0);
-    topPlate.receiveShadow = true;
+    // Chrome isolation feet
+    const footGeo = new THREE.CylinderGeometry(0.9, 0.7, 0.6, 24);
+    [
+      [-7.2, -5.8],
+      [7.2, -5.8],
+      [-7.2, 5.8],
+      [7.2, 5.8],
+    ].forEach(([fx, fz]) => {
+      const foot = new THREE.Mesh(footGeo, chromeMat);
+      foot.position.set(fx, 0.3, fz);
+      turntableGroup.add(foot);
+    });
+
+    const topPlateMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.85 });
+    const topPlate = new THREE.Mesh(new THREE.BoxGeometry(16.8, 0.08, 14.4), topPlateMat);
+    topPlate.position.set(0, 2.05, 0);
     turntableGroup.add(topPlate);
 
-    const platterMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.6 });
-    const platter = new THREE.Mesh(new THREE.CylinderGeometry(6.2, 6.2, 0.4, 48), platterMat);
-    platter.position.set(-1.5, 2.5, 0);
+    const platterMat = new THREE.MeshStandardMaterial({ color: 0x334440, roughness: 0.3, metalness: 0.8 });
+    const platter = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 0.35, 48), platterMat);
+    platter.position.set(-1.6, 2.35, 0);
     platter.castShadow = true;
     turntableGroup.add(platter);
 
-    const vinylMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.25, metalness: 0.4 });
-    const vinylRecord = new THREE.Mesh(new THREE.CylinderGeometry(6.0, 6.0, 0.05, 48), vinylMat);
-    vinylRecord.position.set(-1.5, 2.72, 0);
+    const vinylRecord = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 0.05, 48), vinylMat);
+    vinylRecord.position.set(-1.6, 2.55, 0);
     vinylRecord.castShadow = true;
     turntableGroup.add(vinylRecord);
 
     const centerLabelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.0 });
-    const centerLabel = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 0.06, 32), centerLabelMat);
-    centerLabel.position.set(-1.5, 2.73, 0);
+    const centerLabel = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.06, 32), centerLabelMat);
+    centerLabel.position.set(-1.6, 2.56, 0);
     turntableGroup.add(centerLabel);
 
+    // Tone arm
     const armPivotGroup = new THREE.Group();
-    armPivotGroup.position.set(6.2, 2.5, -4.5);
+    armPivotGroup.position.set(5.5, 2.3, -4.2);
 
-    const armBase = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 1.2, 24), topPlateMat);
-    armBase.position.set(0, 0.6, 0);
+    const armBase = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 1.1, 24), chromeMat);
+    armBase.position.set(0, 0.55, 0);
     armBase.castShadow = true;
     armPivotGroup.add(armBase);
 
-    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.15, metalness: 0.9 });
-    const armTube = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 8.5, 16), chromeMat);
-    armTube.position.set(-2.5, 1.4, 2.5);
+    const armTube = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 8.0, 16), chromeMat);
+    armTube.position.set(-2.2, 1.3, 2.2);
     armTube.rotation.x = Math.PI / 2;
     armTube.rotation.z = -0.55;
     armTube.castShadow = true;
     armPivotGroup.add(armTube);
 
-    const cartridge = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 1.2), brassMat);
-    cartridge.position.set(-4.8, 1.3, 5.8);
+    const cartridgeMat = new THREE.MeshStandardMaterial({ color: 0x00b686, roughness: 0.3, metalness: 0.4 });
+    const cartridge = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 1.1), cartridgeMat);
+    cartridge.position.set(-4.3, 1.2, 5.3);
     cartridge.rotation.y = -0.3;
     cartridge.castShadow = true;
     armPivotGroup.add(cartridge);
@@ -451,29 +573,25 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     turntableGroup.add(armPivotGroup);
     scene.add(turntableGroup);
 
-    // Sleeves Pool
+    // ==================================================================
+    // 4. SLEEVES POOL (Cascading in Acrylic Rack)
+    // ==================================================================
     const MAX_VISIBLE_SLEEVES = 24;
-    const sleeveGeometry = new THREE.BoxGeometry(12.2, 12.2, 0.16);
+    const rackSleeveGeo = new THREE.BoxGeometry(11.8, 11.8, 0.16);
     const sleevePool = [];
-
-    const defaultSpineMat = new THREE.MeshStandardMaterial({ color: 0x362c24, roughness: 0.85 });
+    const defaultSpineMat = new THREE.MeshStandardMaterial({ color: 0x223530, roughness: 0.8 });
 
     for (let i = 0; i < MAX_VISIBLE_SLEEVES; i++) {
       const frontMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.02 });
       const backMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.02 });
       const materials = [defaultSpineMat, defaultSpineMat, defaultSpineMat, defaultSpineMat, frontMat, backMat];
-      const sleeveMesh = new THREE.Mesh(sleeveGeometry, materials);
+      const sleeveMesh = new THREE.Mesh(rackSleeveGeo, materials);
       sleeveMesh.castShadow = true;
       sleeveMesh.receiveShadow = true;
       sleeveMesh.visible = false;
-      crateGroup.add(sleeveMesh);
+      rackGroup.add(sleeveMesh);
 
-      const peekVinyl = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.5, 0.04, 32), vinylMat);
-      peekVinyl.rotation.x = Math.PI / 2;
-      peekVinyl.visible = false;
-      sleeveMesh.add(peekVinyl);
-
-      sleevePool.push({ mesh: sleeveMesh, frontMat, backMat, peekVinyl, albumIndex: -1 });
+      sleevePool.push({ mesh: sleeveMesh, frontMat, backMat, albumIndex: -1 });
     }
 
     let continuousPos = posRef.current.target;
@@ -495,17 +613,42 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         continuousPos = posRef.current.target;
       }
 
+      // Turntable animation
       if (state.playerPlaying) {
         platter.rotation.y -= 0.035;
         vinylRecord.rotation.y -= 0.035;
         centerLabel.rotation.y -= 0.035;
-        targetArmRotation = 0.38;
+        heroVinyl.rotation.y -= 0.035;
+        heroLabel.rotation.y -= 0.035;
+        targetArmRotation = 0.36;
       } else {
         targetArmRotation = 0.05;
       }
       currentArmRotation += (targetArmRotation - currentArmRotation) * 0.08;
       armPivotGroup.rotation.y = currentArmRotation;
 
+      // Update Hero Easel Album Artwork
+      const activeAlb = filtered[state.selectedIndex] || filtered[0];
+      const activeThumb = activeAlb?.thumbMd || activeAlb?.thumbSm;
+      if (activeThumb) {
+        const tex = getTexture(activeThumb);
+        if (tex) {
+          if (heroFrontMat.map !== tex) {
+            heroFrontMat.map = tex;
+            heroFrontMat.needsUpdate = true;
+          }
+          if (heroBackMat.map !== tex) {
+            heroBackMat.map = tex;
+            heroBackMat.needsUpdate = true;
+          }
+          if (heroLabelMat.map !== tex) {
+            heroLabelMat.map = tex;
+            heroLabelMat.needsUpdate = true;
+          }
+        }
+      }
+
+      // Turntable center label texture
       const currentPlayingAlbum = albums.find((a) => a.albumId === state.playingAlbumId);
       const playingThumb = currentPlayingAlbum?.thumbMd || currentPlayingAlbum?.thumbSm;
       if (playingThumb) {
@@ -522,6 +665,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         return;
       }
 
+      // Position Sleeves in the Acrylic Rack
       const centerIdx = Math.round(continuousPos);
       const halfWindow = Math.floor(MAX_VISIBLE_SLEEVES / 2);
       const startIdx = Math.max(0, centerIdx - halfWindow);
@@ -551,42 +695,30 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           }
         }
 
-        // PHYSICAL BIN LAYOUT:
-        // delta < 0: records already flipped forward into front well (+Z), lying flat down low so they NEVER obscure active album!
-        // delta === 0: active record, stands tall and proud, 100% visible from top to bottom
-        // delta > 0: unviewed records waiting behind (-Z), upright and stacked
+        // Arrangement in the transparent acrylic rack:
+        // delta < 0: records flipped forward into front well (+Z), angled forward
+        // delta === 0: active transition point
+        // delta > 0: upright records stacked behind (-Z)
         const delta = idx - continuousPos;
         let targetZ = 0;
         let targetRotX = 0;
-        let targetY = 7.6;
+        let targetY = 6.2;
 
         if (delta < -0.2) {
-          // Flipped forward into front compartment: lay down low (Y=1.0) and pushed forward (Z=4.5..13)
           const flipOffset = -delta;
-          targetZ = 4.0 + Math.min(10.5, flipOffset * 0.45);
-          targetY = 1.2;
-          targetRotX = 0.98; // ~56 deg forward, laying almost flat!
-          item.peekVinyl.visible = false;
+          targetZ = 3.5 + Math.min(10.0, flipOffset * 0.45);
+          targetY = 1.4;
+          targetRotX = 0.88; // Flipped forward resting in front well
         } else if (delta > 0.2) {
-          // Waiting behind in the crate: upright, tilted slightly back
           targetZ = -1.2 - delta * 0.45;
-          targetY = 6.0;
-          targetRotX = -0.20; // ~11 deg back
-          item.peekVinyl.visible = false;
+          targetY = 5.9;
+          targetRotX = -0.18; // Upright waiting in rear rack
         } else {
-          // Active Record Hero Zone (100% visible and unblocked)
           const flipFactor = (delta + 0.2) / 0.4;
-          targetRotX = THREE.MathUtils.lerp(0.98, -0.20, flipFactor);
+          targetRotX = THREE.MathUtils.lerp(0.88, -0.18, flipFactor);
           targetZ = -delta * 1.8;
           const lift = Math.max(0, 1.0 - Math.abs(delta) * 4.0);
-          targetY = 6.2 + lift * 1.6;
-
-          if (lift > 0.35) {
-            item.peekVinyl.visible = true;
-            item.peekVinyl.position.set(2.5, 2.2, -0.1);
-          } else {
-            item.peekVinyl.visible = false;
-          }
+          targetY = 6.2 + lift * 1.2;
         }
 
         item.mesh.position.set(0, targetY, targetZ);
@@ -614,9 +746,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       const rect = canvas.getBoundingClientRect();
       const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const ny = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-      camera.position.x = -2 + nx * 2.2;
-      camera.position.y = 20 + ny * 1.2;
-      camera.lookAt(-2, 5.0, 0);
+      camera.position.x = 0.5 + nx * 2.5;
+      camera.position.y = 18 + ny * 1.2;
+      camera.lookAt(0.5, 5.5, 0);
 
       if (!posRef.current.isDragging) return;
       const diffX = e.clientX - posRef.current.dragStartX;
@@ -658,6 +790,14 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       mouseVector.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
       raycaster.setFromCamera(mouseVector, camera);
 
+      // Check if clicking Hero Easel
+      const heroHits = raycaster.intersectObject(heroSleeve, false);
+      if (heroHits.length > 0) {
+        handlePlayAlbum();
+        return;
+      }
+
+      // Check if clicking a record in the rack
       const visibleMeshes = sleevePool.filter((s) => s.mesh.visible).map((s) => s.mesh);
       const intersects = raycaster.intersectObjects(visibleMeshes, false);
 
@@ -701,9 +841,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       canvas.removeEventListener('click', onClick);
       renderer.dispose();
       textureCache.forEach((tex) => tex.dispose());
-      deskWoodTexture.dispose();
+      bgTex.dispose();
     };
-  }, [albums]);
+  }, [albums, handlePlayAlbum, goToIndex]);
 
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
   const handleAZClick = (letter) => {
@@ -729,15 +869,15 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
             <Icon icon="GridIcon" size={16} stroke />
             <span>Grid View</span>
           </button>
-          <span className={style.crateTitleBadge}>{filteredAlbums.length} Records in Bin</span>
+          <span className={style.crateTitleBadge}>{filteredAlbums.length} Records in Conservatory</span>
         </div>
 
-        {/* Minimalist Search Pill */}
+        {/* Frutiger Aero Glass Search Pill */}
         <div className={style.searchWrap}>
           <Icon icon="SearchIcon" size={15} stroke />
           <input
             type="text"
-            placeholder="Search record bin..."
+            placeholder="Search conservatory bin..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -751,13 +891,13 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           )}
         </div>
 
-        {/* Empty placeholder on top right to NEVER overlap user's library dropdown */}
+        {/* Clear right area to never collide with library / profile selectors */}
         <div className={style.topBarRight} />
       </div>
 
-      {/* Unified Bottom-Left Dock: Selected Album + Merged Now Spinning Media Controls */}
+      {/* Unified Bottom-Left Dock: Selected Album Card + Integrated Now Spinning Player Bar */}
       <div className={style.bottomLeftDock}>
-        {/* Selected Record in Crate */}
+        {/* Selected Record on Hero Display Easel */}
         {currentAlbum && (
           <div className={style.activeCard}>
             <div className={style.cardTop}>
@@ -828,10 +968,18 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
             <div className={style.spinningInfo}>
               <span className={style.label}>{playerPlaying ? 'Now Spinning' : 'Turntable Ready'}</span>
               <span className={style.title}>
-                {currentTrack ? currentTrack.title || 'Unknown Title' : currentAlbum ? currentAlbum.title : 'Ready to Spin'}
+                {currentTrack
+                  ? currentTrack.title || 'Unknown Title'
+                  : currentAlbum
+                    ? currentAlbum.title
+                    : 'Ready to Spin'}
               </span>
               <span className={style.artist}>
-                {currentTrack ? currentTrack.artist || 'Unknown Artist' : currentAlbum ? currentAlbum.artist : 'Chromatix Vinyl'}
+                {currentTrack
+                  ? currentTrack.artist || 'Unknown Artist'
+                  : currentAlbum
+                    ? currentAlbum.artist
+                    : 'Chromatix Vinyl'}
               </span>
             </div>
           </div>
