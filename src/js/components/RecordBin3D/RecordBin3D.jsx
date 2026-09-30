@@ -64,7 +64,15 @@ const getProxiedImageUrl = (url) => {
 // PROCEDURAL TEXTURE GENERATORS (GATEFOLD BOOKLET & CRATE PLAQUE)
 // ======================================================================
 
-function renderBookletCanvas(canvas, album, tracks, activeTrackId, isPlaying) {
+function drawRoundRect(ctx, x, y, w, h, r) {
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, w, h, r);
+  } else {
+    ctx.rect(x, y, w, h);
+  }
+}
+
+function renderBookletCanvas(canvas, album, tracks, activeTrackId, isPlaying, scrollY = 0, hoveredTrackIdx = -1) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
   const h = canvas.height;
@@ -121,7 +129,8 @@ function renderBookletCanvas(canvas, album, tracks, activeTrackId, isPlaying) {
   ctx.fillStyle = '#496d63';
   ctx.font = '500 20px system-ui, -apple-system, sans-serif';
   const yearStr = album?.releaseDate ? formatReleaseYear(album.releaseDate) : 'Vinyl Edition';
-  const tracksStr = tracks?.length ? `${tracks.length} tracks` : `${album?.totalTracks || 0} tracks`;
+  const totalTrks = tracks?.length || album?.totalTracks || 0;
+  const tracksStr = `${totalTrks} track${totalTrks === 1 ? '' : 's'}`;
   const durStr = album?.duration ? durationToStringMed(album.duration) : '';
   ctx.fillText(`${yearStr} • ${tracksStr} ${durStr ? '• ' + durStr : ''}`, 50, 245);
 
@@ -146,56 +155,134 @@ function renderBookletCanvas(canvas, album, tracks, activeTrackId, isPlaying) {
   ctx.restore();
 
   // -------------------------------------------------------------
-  // RIGHT PAGE: INTERACTIVE TRACKLIST
+  // RIGHT PAGE: INTERACTIVE SCROLLABLE TRACKLIST
   // -------------------------------------------------------------
   ctx.save();
   ctx.fillStyle = '#008763';
   ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
-  ctx.fillText('TRACKLIST • CLICK TO PLAY', 550, 75);
+  ctx.fillText('TRACKLIST • CLICK TO PLAY', 550, 68);
 
-  const displayTracks = (tracks || []).slice(0, 8);
+  const totalTracks = tracks?.length || 0;
+  if (totalTracks > 0) {
+    ctx.fillStyle = '#496d63';
+    ctx.font = '600 15px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${totalTracks} TRACKS`, 975, 68);
+    ctx.textAlign = 'left';
+  }
+
+  const viewportTop = 86;
+  const viewportBottom = 486;
+  const viewportHeight = viewportBottom - viewportTop; // 400px
   const rowHeight = 44;
-  const startY = 105;
+  const maxScroll = Math.max(0, totalTracks * rowHeight - viewportHeight);
+  const scrollOffset = Math.max(0, Math.min(maxScroll, scrollY));
 
-  if (displayTracks.length === 0) {
+  if (!tracks || tracks.length === 0) {
     ctx.fillStyle = '#5a786f';
     ctx.font = 'italic 20px system-ui, sans-serif';
     ctx.fillText('Loading track details...', 550, 160);
   } else {
-    displayTracks.forEach((trk, idx) => {
-      const y = startY + idx * rowHeight;
-      const isTrkActive = activeTrackId && trk.trackId === activeTrackId;
+    // Clip viewport area for clean scrolling
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(535, viewportTop, 450, viewportHeight);
+    ctx.clip();
 
+    tracks.forEach((trk, idx) => {
+      const rowY = viewportTop + idx * rowHeight - scrollOffset;
+      // Skip offscreen rows
+      if (rowY + rowHeight < viewportTop - 10 || rowY > viewportBottom + 10) return;
+
+      const isTrkActive = activeTrackId && trk.trackId === activeTrackId;
+      const isTrkHovered = hoveredTrackIdx === idx;
+
+      // Row background
       if (isTrkActive) {
-        // Highlight active track pill
         ctx.fillStyle = 'rgba(0, 182, 134, 0.22)';
-        ctx.fillRect(540, y - 26, 440, 36);
+        ctx.beginPath();
+        drawRoundRect(ctx, 540, rowY + 4, 435, 36, 6);
+        ctx.fill();
         ctx.strokeStyle = '#00b686';
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(540, y - 26, 440, 36);
+        ctx.beginPath();
+        drawRoundRect(ctx, 540, rowY + 4, 435, 36, 6);
+        ctx.stroke();
+      } else if (isTrkHovered) {
+        ctx.fillStyle = 'rgba(0, 182, 134, 0.08)';
+        ctx.beginPath();
+        drawRoundRect(ctx, 540, rowY + 4, 435, 36, 6);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0, 182, 134, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        drawRoundRect(ctx, 540, rowY + 4, 435, 36, 6);
+        ctx.stroke();
       }
 
-      // Track Number
-      ctx.fillStyle = isTrkActive ? '#008763' : '#496d63';
-      ctx.font = isTrkActive ? 'bold 20px system-ui, sans-serif' : '600 18px system-ui, sans-serif';
-      ctx.fillText(String(idx + 1).padStart(2, '0'), 550, y);
+      // Track Number or Play Indicator
+      ctx.fillStyle = isTrkActive ? '#008763' : isTrkHovered ? '#006c4f' : '#496d63';
+      ctx.font = isTrkActive ? 'bold 18px system-ui, sans-serif' : '600 17px system-ui, sans-serif';
+      const numStr = isTrkActive && isPlaying ? '▶' : String(idx + 1).padStart(2, '0');
+      ctx.fillText(numStr, 550, rowY + 28);
 
       // Track Title
-      ctx.fillStyle = isTrkActive ? '#005b42' : '#0b2921';
-      ctx.font = isTrkActive ? 'bold 20px system-ui, sans-serif' : '500 19px system-ui, sans-serif';
+      ctx.fillStyle = isTrkActive ? '#005b42' : isTrkHovered ? '#004331' : '#0b2921';
+      ctx.font = isTrkActive ? 'bold 18px system-ui, sans-serif' : '500 18px system-ui, sans-serif';
       const rawTitle = trk.title || `Track ${idx + 1}`;
-      const songTitle = rawTitle.length > 24 ? rawTitle.slice(0, 24) + '…' : rawTitle;
-      ctx.fillText(songTitle, 595, y);
+      const songTitle = rawTitle.length > 25 ? rawTitle.slice(0, 25) + '…' : rawTitle;
+      ctx.fillText(songTitle, 588, rowY + 28);
 
       // Duration
-      ctx.fillStyle = '#5a786f';
-      ctx.font = '500 17px system-ui, sans-serif';
+      ctx.fillStyle = isTrkActive ? '#008763' : '#5a786f';
+      ctx.font = '500 16px system-ui, sans-serif';
       ctx.textAlign = 'right';
       const dur = trk.duration ? durationToStringMed(trk.duration) : '';
-      ctx.fillText(dur, 970, y);
+      ctx.fillText(dur, 965, rowY + 28);
       ctx.textAlign = 'left';
     });
+
+    // Top and bottom edge gradient fade for soft transition
+    if (scrollOffset > 4) {
+      const topFade = ctx.createLinearGradient(0, viewportTop, 0, viewportTop + 16);
+      topFade.addColorStop(0, '#f2f8f5');
+      topFade.addColorStop(1, 'rgba(242, 248, 245, 0)');
+      ctx.fillStyle = topFade;
+      ctx.fillRect(535, viewportTop, 450, 16);
+    }
+    if (scrollOffset < maxScroll - 4) {
+      const btmFade = ctx.createLinearGradient(0, viewportBottom - 16, 0, viewportBottom);
+      btmFade.addColorStop(0, 'rgba(235, 243, 239, 0)');
+      btmFade.addColorStop(1, '#ebf3ef');
+      ctx.fillStyle = btmFade;
+      ctx.fillRect(535, viewportBottom - 16, 450, 16);
+    }
+
+    ctx.restore();
+
+    // Scrollbar (if content overflows viewport)
+    if (maxScroll > 0) {
+      const scrollbarX = 982;
+      const scrollbarWidth = 5;
+      const scrollbarTrackHeight = viewportHeight;
+
+      // Track groove
+      ctx.fillStyle = 'rgba(0, 45, 30, 0.06)';
+      ctx.beginPath();
+      drawRoundRect(ctx, scrollbarX, viewportTop, scrollbarWidth, scrollbarTrackHeight, 2.5);
+      ctx.fill();
+
+      // Thumb
+      const thumbHeight = Math.max(28, (viewportHeight / (totalTracks * rowHeight)) * scrollbarTrackHeight);
+      const thumbY = viewportTop + (scrollOffset / maxScroll) * (scrollbarTrackHeight - thumbHeight);
+
+      ctx.fillStyle = 'rgba(0, 160, 110, 0.55)';
+      ctx.beginPath();
+      drawRoundRect(ctx, scrollbarX, thumbY, scrollbarWidth, thumbHeight, 2.5);
+      ctx.fill();
+    }
   }
+
   ctx.restore();
 }
 
@@ -272,10 +359,13 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
   // Request tracks for both current playing album & browsed album so booklet is always loaded
   useEffect(() => {
-    if (currentPlayingAlbum && libraryId) {
+    if (currentAlbum && libraryId) {
+      bridge.getAlbumTracks(libraryId, currentAlbum.albumId);
+    }
+    if (currentPlayingAlbum && libraryId && currentPlayingAlbum.albumId !== currentAlbum?.albumId) {
       bridge.getAlbumTracks(libraryId, currentPlayingAlbum.albumId);
     }
-  }, [currentPlayingAlbum, libraryId]);
+  }, [currentAlbum, currentPlayingAlbum, libraryId]);
 
   const playingAlbumTracks =
     (currentPlayingAlbum && allAlbumTracks?.[libraryId + '-' + currentPlayingAlbum.albumId]) || [];
@@ -303,6 +393,8 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     currentPlayingAlbum,
     playingAlbumTracks,
     currentTrack,
+    playingTrackKeys,
+    playingTrackList,
   };
 
   const goToIndex = useCallback((index) => {
@@ -334,7 +426,25 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     (trackIndex) => {
       const alb = stateRef.current.currentPlayingAlbum || stateRef.current.currentAlbum;
       if (!alb) return;
-      dispatch.playerModel.playerLoadAlbum({ albumId: alb.albumId, trackIndex });
+
+      const playingAlbId = stateRef.current.playingAlbumId;
+      const playingKeys = stateRef.current.playingTrackKeys;
+
+      // If this album is already active in player, skip directly to trackIndex without full reload
+      if (alb.albumId === playingAlbId && playingKeys && playingKeys.length > 0) {
+        const keyIdx = playingKeys.indexOf(trackIndex);
+        if (keyIdx !== -1) {
+          dispatch.playerModel.playerLoadIndex({ index: keyIdx, play: true });
+          return;
+        }
+      }
+
+      // Otherwise load the album starting at trackIndex with isTrack: true
+      dispatch.playerModel.playerLoadAlbum({
+        albumId: alb.albumId,
+        trackIndex,
+        isTrack: true,
+      });
     },
     [dispatch]
   );
@@ -832,6 +942,24 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     let lastRenderedTrackId = null;
     let lastRenderedPlayingState = null;
     let lastRenderedTracksCount = 0;
+    let lastRenderedScroll = -999;
+    let lastRenderedHoverIdx = -1;
+    let lastAlbumIdForScroll = null;
+    let lastActiveTrackIdForScroll = null;
+
+    const bookletScrollTarget = { current: 0 };
+    const bookletScrollCurrent = { current: 0 };
+    const bookletDragRef = {
+      current: {
+        isDragging: false,
+        startY: 0,
+        startX: 0,
+        startScroll: 0,
+        dragDistance: 0,
+        wasDrag: false,
+      },
+    };
+    const hoveredTrackIndexRef = { current: -1 };
 
     // Continuous Animation Loop
     const animate = () => {
@@ -846,6 +974,14 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         continuousPos += diff * 0.18;
       } else {
         continuousPos = posRef.current.target;
+      }
+
+      // Smooth inertia scrolling for the booklet tracklist
+      const scrollDiff = bookletScrollTarget.current - bookletScrollCurrent.current;
+      if (Math.abs(scrollDiff) > 0.05) {
+        bookletScrollCurrent.current += scrollDiff * 0.22;
+      } else {
+        bookletScrollCurrent.current = bookletScrollTarget.current;
       }
 
       // Turntable animation & physical lever
@@ -878,25 +1014,53 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         cratePlaqueTex.needsUpdate = true;
       }
 
-      // Update Gatefold Booklet Canvas when playing album or track changes
+      // Update Gatefold Booklet Canvas when playing album, track, scroll, or hover changes
       const playingAlb = state.currentPlayingAlbum;
-      const trks = state.playingAlbumTracks;
+      const trks = state.playingAlbumTracks || [];
       const curTrk = state.currentTrack;
       const curTrkId = curTrk?.trackId;
       const isPlay = state.playerPlaying;
+      const scrollPos = bookletScrollCurrent.current;
+      const hovIdx = hoveredTrackIndexRef.current;
 
-      if (
+      // Reset scroll if album changed
+      if (playingAlb?.albumId !== lastAlbumIdForScroll) {
+        lastAlbumIdForScroll = playingAlb?.albumId;
+        bookletScrollTarget.current = 0;
+        bookletScrollCurrent.current = 0;
+      }
+
+      // Auto-scroll to keep active playing track visible when track changes
+      if (curTrkId && curTrkId !== lastActiveTrackIdForScroll) {
+        lastActiveTrackIdForScroll = curTrkId;
+        const activeIdx = trks.findIndex((t) => t.trackId === curTrkId);
+        if (activeIdx !== -1) {
+          const trackTop = activeIdx * 44;
+          const viewportHeight = 400;
+          const maxScroll = Math.max(0, trks.length * 44 - viewportHeight);
+          if (trackTop < bookletScrollTarget.current || trackTop + 44 > bookletScrollTarget.current + viewportHeight) {
+            bookletScrollTarget.current = Math.max(0, Math.min(maxScroll, trackTop - 44));
+          }
+        }
+      }
+
+      const needsBookletUpdate =
         playingAlb?.albumId !== lastRenderedPlayingAlbumId ||
         curTrkId !== lastRenderedTrackId ||
         isPlay !== lastRenderedPlayingState ||
-        trks.length !== lastRenderedTracksCount
-      ) {
+        trks.length !== lastRenderedTracksCount ||
+        Math.abs(scrollPos - lastRenderedScroll) > 0.5 ||
+        hovIdx !== lastRenderedHoverIdx;
+
+      if (needsBookletUpdate) {
         lastRenderedPlayingAlbumId = playingAlb?.albumId;
         lastRenderedTrackId = curTrkId;
         lastRenderedPlayingState = isPlay;
         lastRenderedTracksCount = trks.length;
+        lastRenderedScroll = scrollPos;
+        lastRenderedHoverIdx = hovIdx;
 
-        renderBookletCanvas(bookletCanvas, playingAlb, trks, curTrkId, isPlay);
+        renderBookletCanvas(bookletCanvas, playingAlb, trks, curTrkId, isPlay, scrollPos, hovIdx);
         bookletTex.needsUpdate = true;
       }
 
@@ -1000,6 +1164,25 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     const canvas = renderer.domElement;
 
     const onPointerDown = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseVector.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouseVector.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+      raycaster.setFromCamera(mouseVector, camera);
+
+      const bookletHits = raycaster.intersectObject(bookletMesh, false);
+      if (bookletHits.length > 0) {
+        bookletDragRef.current = {
+          isDragging: true,
+          startY: e.clientY,
+          startX: e.clientX,
+          startScroll: bookletScrollTarget.current,
+          dragDistance: 0,
+          wasDrag: false,
+        };
+        posRef.current.isDragging = false;
+        return;
+      }
+
       posRef.current.isDragging = true;
       posRef.current.dragStartX = e.clientX;
       posRef.current.dragStartTarget = posRef.current.target;
@@ -1014,6 +1197,76 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       camera.position.y = 19.2 + ny * 1.1;
       camera.lookAt(0, 5.2, 0);
 
+      // Handle booklet dragging
+      if (bookletDragRef.current.isDragging) {
+        const deltaY = e.clientY - bookletDragRef.current.startY;
+        const deltaX = e.clientX - bookletDragRef.current.startX;
+        bookletDragRef.current.dragDistance = Math.hypot(deltaX, deltaY);
+
+        const trks = stateRef.current.playingAlbumTracks || [];
+        const totalTracks = trks.length;
+        const viewportHeight = 400;
+        const rowHeight = 44;
+        const maxScroll = Math.max(0, totalTracks * rowHeight - viewportHeight);
+
+        if (maxScroll > 0) {
+          const scrollDelta = -deltaY * 1.4;
+          bookletScrollTarget.current = Math.max(
+            0,
+            Math.min(maxScroll, bookletDragRef.current.startScroll + scrollDelta)
+          );
+        }
+        return;
+      }
+
+      // Check hover on booklet tracklist
+      mouseVector.x = nx;
+      mouseVector.y = ny;
+      raycaster.setFromCamera(mouseVector, camera);
+
+      const bookletHits = raycaster.intersectObject(bookletMesh, false);
+      if (bookletHits.length > 0 && bookletHits[0].uv) {
+        const uv = bookletHits[0].uv;
+        if (uv.x >= 0.51) {
+          const canvasY = (1 - uv.y) * 512;
+          const viewportTop = 86;
+          const viewportBottom = 486;
+          const rowHeight = 44;
+          const trks = stateRef.current.playingAlbumTracks || [];
+
+          if (canvasY >= viewportTop && canvasY <= viewportBottom) {
+            const relY = canvasY - viewportTop + bookletScrollCurrent.current;
+            const hovIdx = Math.floor(relY / rowHeight);
+            if (hovIdx >= 0 && hovIdx < trks.length) {
+              if (hoveredTrackIndexRef.current !== hovIdx) {
+                hoveredTrackIndexRef.current = hovIdx;
+              }
+              canvas.style.cursor = 'pointer';
+            } else {
+              if (hoveredTrackIndexRef.current !== -1) {
+                hoveredTrackIndexRef.current = -1;
+              }
+              canvas.style.cursor = 'default';
+            }
+          } else {
+            if (hoveredTrackIndexRef.current !== -1) {
+              hoveredTrackIndexRef.current = -1;
+            }
+            canvas.style.cursor = 'default';
+          }
+        } else {
+          if (hoveredTrackIndexRef.current !== -1) {
+            hoveredTrackIndexRef.current = -1;
+          }
+          canvas.style.cursor = 'pointer';
+        }
+      } else {
+        if (hoveredTrackIndexRef.current !== -1) {
+          hoveredTrackIndexRef.current = -1;
+        }
+        canvas.style.cursor = 'default';
+      }
+
       if (!posRef.current.isDragging) return;
       const diffX = e.clientX - posRef.current.dragStartX;
       const deltaIndex = diffX / 55;
@@ -1024,6 +1277,11 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     };
 
     const onPointerUp = () => {
+      if (bookletDragRef.current.isDragging) {
+        bookletDragRef.current.isDragging = false;
+        bookletDragRef.current.wasDrag = bookletDragRef.current.dragDistance > 6;
+      }
+
       if (posRef.current.isDragging) {
         posRef.current.isDragging = false;
         posRef.current.target = Math.round(posRef.current.target);
@@ -1034,6 +1292,28 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
     const onWheel = (e) => {
       e.preventDefault();
+
+      const rect = canvas.getBoundingClientRect();
+      mouseVector.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouseVector.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+      raycaster.setFromCamera(mouseVector, camera);
+
+      // Check if mouse is over the booklet
+      const bookletHits = raycaster.intersectObject(bookletMesh, false);
+      if (bookletHits.length > 0 && bookletHits[0].uv) {
+        const trks = stateRef.current.playingAlbumTracks || [];
+        const totalTracks = trks.length;
+        const viewportHeight = 400;
+        const rowHeight = 44;
+        const maxScroll = Math.max(0, totalTracks * rowHeight - viewportHeight);
+
+        if (maxScroll > 0) {
+          bookletScrollTarget.current = Math.max(0, Math.min(maxScroll, bookletScrollTarget.current + e.deltaY * 0.85));
+        }
+        return;
+      }
+
+      // Otherwise wheel navigates albums in the acrylic crate
       const step = e.deltaY > 0 ? 1 : -1;
       const state = stateRef.current;
       const total = state.filteredAlbums?.length || 1;
@@ -1049,6 +1329,12 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     const mouseVector = new THREE.Vector2();
 
     const onClick = (e) => {
+      // If pointer was dragged on the booklet, suppress click
+      if (bookletDragRef.current.wasDrag) {
+        bookletDragRef.current.wasDrag = false;
+        return;
+      }
+
       const rect = canvas.getBoundingClientRect();
       mouseVector.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouseVector.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
@@ -1087,16 +1373,19 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           const uvX = hit.uv.x;
           const uvY = hit.uv.y;
 
-          // If clicking on the right page (Tracklist area: x >= 0.52)
-          if (uvX >= 0.52) {
-            // Tracklist rows run from canvas Y: 105 to 457 (uvY 0.79 down to 0.10)
+          // If clicking on the right page (Tracklist area: x >= 0.51)
+          if (uvX >= 0.51) {
             const canvasY = (1 - uvY) * 512;
-            const startY = 105;
+            const viewportTop = 86;
+            const viewportBottom = 486;
             const rowHeight = 44;
             const trks = stateRef.current.playingAlbumTracks || [];
 
-            if (canvasY >= startY - 20 && canvasY <= startY + 8 * rowHeight) {
-              const clickedIdx = Math.floor((canvasY - (startY - 20)) / rowHeight);
+            if (canvasY >= viewportTop && canvasY <= viewportBottom) {
+              const currentScroll = bookletScrollCurrent.current;
+              const relativeY = canvasY - viewportTop + currentScroll;
+              const clickedIdx = Math.floor(relativeY / rowHeight);
+
               if (clickedIdx >= 0 && clickedIdx < trks.length) {
                 handlePlayTrack(clickedIdx);
                 return;
