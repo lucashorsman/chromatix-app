@@ -61,6 +61,178 @@ const getProxiedImageUrl = (url) => {
 };
 
 // ======================================================================
+// PROCEDURAL TEXTURE GENERATORS (GATEFOLD BOOKLET & CRATE PLAQUE)
+// ======================================================================
+
+function renderBookletCanvas(canvas, album, tracks, activeTrackId, isPlaying) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // Background: Fine textured cream paper with subtle glass sheen
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, '#f9fcfa');
+  grad.addColorStop(0.5, '#f0f6f3');
+  grad.addColorStop(1, '#e6efe9');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Subtle border
+  ctx.strokeStyle = 'rgba(0, 140, 100, 0.25)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(4, 4, w - 8, h - 8);
+
+  // Center gatefold spine shadow
+  const spineGrad = ctx.createLinearGradient(w / 2 - 30, 0, w / 2 + 30, 0);
+  spineGrad.addColorStop(0, 'rgba(0, 30, 20, 0)');
+  spineGrad.addColorStop(0.5, 'rgba(0, 30, 20, 0.18)');
+  spineGrad.addColorStop(1, 'rgba(0, 30, 20, 0)');
+  ctx.fillStyle = spineGrad;
+  ctx.fillRect(w / 2 - 30, 0, 60, h);
+
+  // -------------------------------------------------------------
+  // LEFT PAGE: ALBUM CREDITS & EDITORIAL NOTES
+  // -------------------------------------------------------------
+  ctx.save();
+  ctx.fillStyle = '#008763';
+  ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+  ctx.fillText(isPlaying ? '● NOW PLAYING' : 'TURNTABLE READY', 50, 75);
+
+  ctx.fillStyle = '#0b2921';
+  ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
+  const title = album?.title || 'No Album Selected';
+  const truncTitle = title.length > 22 ? title.slice(0, 22) + '…' : title;
+  ctx.fillText(truncTitle, 50, 130);
+
+  ctx.fillStyle = '#008763';
+  ctx.font = '600 26px system-ui, -apple-system, sans-serif';
+  const artist = album?.artist || 'Unknown Artist';
+  const truncArtist = artist.length > 26 ? artist.slice(0, 26) + '…' : artist;
+  ctx.fillText(truncArtist, 50, 175);
+
+  // Divider
+  ctx.strokeStyle = 'rgba(0, 140, 100, 0.2)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(50, 205);
+  ctx.lineTo(460, 205);
+  ctx.stroke();
+
+  ctx.fillStyle = '#496d63';
+  ctx.font = '500 20px system-ui, -apple-system, sans-serif';
+  const yearStr = album?.releaseDate ? formatReleaseYear(album.releaseDate) : 'Vinyl Edition';
+  const tracksStr = tracks?.length ? `${tracks.length} tracks` : `${album?.totalTracks || 0} tracks`;
+  const durStr = album?.duration ? durationToStringMed(album.duration) : '';
+  ctx.fillText(`${yearStr} • ${tracksStr} ${durStr ? '• ' + durStr : ''}`, 50, 245);
+
+  ctx.fillStyle = '#5a786f';
+  ctx.font = '18px system-ui, -apple-system, sans-serif';
+  ctx.fillText('Chromatix Conservatory Hi-Fi Audio Suite', 50, 310);
+  ctx.fillText('Mastered for High-Fidelity 33⅓ RPM Playback', 50, 340);
+  ctx.fillText('Natural Glasshouse Acoustic Dispersion', 50, 370);
+
+  // Decorative seal / badge
+  ctx.strokeStyle = '#00b686';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(100, 440, 32, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#008763';
+  ctx.font = 'bold 12px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('CHROMATIX', 100, 436);
+  ctx.fillText('VINYL', 100, 452);
+  ctx.textAlign = 'left';
+  ctx.restore();
+
+  // -------------------------------------------------------------
+  // RIGHT PAGE: INTERACTIVE TRACKLIST
+  // -------------------------------------------------------------
+  ctx.save();
+  ctx.fillStyle = '#008763';
+  ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+  ctx.fillText('TRACKLIST • CLICK TO PLAY', 550, 75);
+
+  const displayTracks = (tracks || []).slice(0, 8);
+  const rowHeight = 44;
+  const startY = 105;
+
+  if (displayTracks.length === 0) {
+    ctx.fillStyle = '#5a786f';
+    ctx.font = 'italic 20px system-ui, sans-serif';
+    ctx.fillText('Loading track details...', 550, 160);
+  } else {
+    displayTracks.forEach((trk, idx) => {
+      const y = startY + idx * rowHeight;
+      const isTrkActive = activeTrackId && trk.trackId === activeTrackId;
+
+      if (isTrkActive) {
+        // Highlight active track pill
+        ctx.fillStyle = 'rgba(0, 182, 134, 0.22)';
+        ctx.fillRect(540, y - 26, 440, 36);
+        ctx.strokeStyle = '#00b686';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(540, y - 26, 440, 36);
+      }
+
+      // Track Number
+      ctx.fillStyle = isTrkActive ? '#008763' : '#496d63';
+      ctx.font = isTrkActive ? 'bold 20px system-ui, sans-serif' : '600 18px system-ui, sans-serif';
+      ctx.fillText(String(idx + 1).padStart(2, '0'), 550, y);
+
+      // Track Title
+      ctx.fillStyle = isTrkActive ? '#005b42' : '#0b2921';
+      ctx.font = isTrkActive ? 'bold 20px system-ui, sans-serif' : '500 19px system-ui, sans-serif';
+      const rawTitle = trk.title || `Track ${idx + 1}`;
+      const songTitle = rawTitle.length > 24 ? rawTitle.slice(0, 24) + '…' : rawTitle;
+      ctx.fillText(songTitle, 595, y);
+
+      // Duration
+      ctx.fillStyle = '#5a786f';
+      ctx.font = '500 17px system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      const dur = trk.duration ? durationToStringMed(trk.duration) : '';
+      ctx.fillText(dur, 970, y);
+      ctx.textAlign = 'left';
+    });
+  }
+  ctx.restore();
+}
+
+function renderCratePlaqueCanvas(canvas, album) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // Frosted acrylic plaque with soft emerald backlight
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+  grad.addColorStop(1, 'rgba(230, 248, 242, 0.9)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = 'rgba(0, 182, 134, 0.5)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, w - 4, h - 4);
+
+  ctx.fillStyle = '#008763';
+  ctx.font = 'bold 16px system-ui, sans-serif';
+  ctx.fillText('CRATE SELECTION • PRESS ENTER TO SPIN', 24, 32);
+
+  ctx.fillStyle = '#0b2921';
+  ctx.font = 'bold 26px system-ui, sans-serif';
+  const title = album?.title || 'Select Record';
+  const truncTitle = title.length > 30 ? title.slice(0, 30) + '…' : title;
+  ctx.fillText(truncTitle, 24, 70);
+
+  ctx.fillStyle = '#008763';
+  ctx.font = '600 20px system-ui, sans-serif';
+  const artist = album?.artist || 'Unknown Artist';
+  const truncArtist = artist.length > 34 ? artist.slice(0, 34) + '…' : artist;
+  ctx.fillText(truncArtist, 24, 102);
+}
+
+// ======================================================================
 // COMPONENT
 // ======================================================================
 
@@ -84,7 +256,6 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [showTracklist, setShowTracklist] = useState(false);
 
   const filteredAlbums = useMemo(() => {
     if (!searchQuery.trim()) return albums;
@@ -95,13 +266,19 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
   }, [albums, searchQuery]);
 
   const currentAlbum = filteredAlbums[selectedIndex] || filteredAlbums[0];
-  const albumTracks = (currentAlbum && allAlbumTracks?.[libraryId + '-' + currentAlbum.albumId]) || [];
+  const currentPlayingAlbum = useMemo(() => {
+    return albums.find((a) => a.albumId === playingAlbumId) || currentAlbum;
+  }, [albums, playingAlbumId, currentAlbum]);
 
+  // Request tracks for both current playing album & browsed album so booklet is always loaded
   useEffect(() => {
-    if (showTracklist && currentAlbum && libraryId) {
-      bridge.getAlbumTracks(libraryId, currentAlbum.albumId);
+    if (currentPlayingAlbum && libraryId) {
+      bridge.getAlbumTracks(libraryId, currentPlayingAlbum.albumId);
     }
-  }, [showTracklist, currentAlbum, libraryId]);
+  }, [currentPlayingAlbum, libraryId]);
+
+  const playingAlbumTracks =
+    (currentPlayingAlbum && allAlbumTracks?.[libraryId + '-' + currentPlayingAlbum.albumId]) || [];
 
   useEffect(() => {
     if (selectedIndex >= filteredAlbums.length && filteredAlbums.length > 0) {
@@ -123,6 +300,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     playerPlaying,
     playingAlbumId,
     currentAlbum,
+    currentPlayingAlbum,
+    playingAlbumTracks,
+    currentTrack,
   };
 
   const goToIndex = useCallback((index) => {
@@ -150,15 +330,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     }
   }, [dispatch]);
 
-  const handleShuffleAlbum = useCallback(() => {
-    const alb = stateRef.current.currentAlbum;
-    if (!alb) return;
-    dispatch.playerModel.playerLoadAlbum({ albumId: alb.albumId, isShuffle: true });
-  }, [dispatch]);
-
   const handlePlayTrack = useCallback(
     (trackIndex) => {
-      const alb = stateRef.current.currentAlbum;
+      const alb = stateRef.current.currentPlayingAlbum || stateRef.current.currentAlbum;
       if (!alb) return;
       dispatch.playerModel.playerLoadAlbum({ albumId: alb.albumId, trackIndex });
     },
@@ -228,6 +402,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
   // ======================================================================
   // THREE.JS GLASSHOUSE FOREST CONSERVATORY SCENE
+  // Centered Record Player + Slight 3/4 Perspective + Gatefold Liner Notes
   // ======================================================================
   useEffect(() => {
     if (!mountRef.current) return;
@@ -239,13 +414,12 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0xd0e8df, 0.007);
 
-    // Camera angled to see:
-    // Left: Dedicated Glass Display Easel (Hero Active Album, 100% unblocked)
-    // Center: Transparent Acrylic Crate Rack with collection
-    // Right: Frosted Acrylic & Chrome Turntable
+    // SLIGHT 3/4 ANGLE PERSPECTIVE:
+    // Centered turntable at (0, 0, 3.5).
+    // Camera slightly offset (+3.8 units to the right) giving a slight, natural 3/4 hi-fi listening station perspective!
     const camera = new THREE.PerspectiveCamera(34, width / height, 0.5, 1000);
-    camera.position.set(0.5, 18, 38);
-    camera.lookAt(0.5, 5.5, 0);
+    camera.position.set(3.8, 19.2, 36.0);
+    camera.lookAt(0, 5.2, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
@@ -304,10 +478,10 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 1;
     sunLight.shadow.camera.far = 130;
-    sunLight.shadow.camera.left = -30;
-    sunLight.shadow.camera.right = 30;
-    sunLight.shadow.camera.top = 30;
-    sunLight.shadow.camera.bottom = -30;
+    sunLight.shadow.camera.left = -32;
+    sunLight.shadow.camera.right = 32;
+    sunLight.shadow.camera.top = 32;
+    sunLight.shadow.camera.bottom = -32;
     sunLight.shadow.bias = -0.0004;
     scene.add(sunLight);
 
@@ -319,7 +493,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     rimLight.position.set(0, 30, -28);
     scene.add(rimLight);
 
-    // Floating Polished White Carrara Marble Console with Glass Edge Trim
+    // Floating Polished White Carrara Marble Console with Frosted Cyan Trim
     const consoleMat = new THREE.MeshPhysicalMaterial({
       color: 0xf5fbf9,
       roughness: 0.1,
@@ -327,12 +501,11 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       clearcoat: 0.85,
       clearcoatRoughness: 0.08,
     });
-    const consoleMesh = new THREE.Mesh(new THREE.BoxGeometry(112, 2.2, 56), consoleMat);
+    const consoleMesh = new THREE.Mesh(new THREE.BoxGeometry(118, 2.2, 56), consoleMat);
     consoleMesh.position.set(0, -1.1, 0);
     consoleMesh.receiveShadow = true;
     scene.add(consoleMesh);
 
-    // Frosted Cyan Acrylic Trim
     const glassTrimMat = new THREE.MeshPhysicalMaterial({
       color: 0x4ee1be,
       transmission: 0.85,
@@ -342,11 +515,11 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       transparent: true,
       opacity: 0.85,
     });
-    const glassTrim = new THREE.Mesh(new THREE.BoxGeometry(112.4, 0.35, 56.4), glassTrimMat);
+    const glassTrim = new THREE.Mesh(new THREE.BoxGeometry(118.4, 0.35, 56.4), glassTrimMat);
     glassTrim.position.set(0, -0.05, 0);
     scene.add(glassTrim);
 
-    // Frutiger Aero Crystal Acrylic Material for Easel & Rack
+    // Frutiger Aero Crystal Acrylic Materials
     const acrylicMat = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       transmission: 0.94,
@@ -371,131 +544,10 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     });
 
     // ==================================================================
-    // 1. HERO DISPLAY EASEL (Active Record Display: 100% UNBLOCKED ART)
-    // ==================================================================
-    const easelGroup = new THREE.Group();
-    easelGroup.position.set(-8.8, 0, 4.0);
-
-    // Crystal acrylic base footer
-    const easelBase = new THREE.Mesh(new THREE.BoxGeometry(14.2, 0.6, 9.5), acrylicMat);
-    easelBase.position.set(0, 0.3, 0);
-    easelBase.castShadow = true;
-    easelBase.receiveShadow = true;
-    easelGroup.add(easelBase);
-
-    // Two tilted acrylic uprights supporting the record
-    const easelUprightLeft = new THREE.Mesh(new THREE.BoxGeometry(0.8, 14.0, 0.6), acrylicMat);
-    easelUprightLeft.position.set(-4.5, 7.0, -1.0);
-    easelUprightLeft.rotation.x = -0.14; // tilted back ~8 deg
-    easelUprightLeft.castShadow = true;
-    easelGroup.add(easelUprightLeft);
-
-    const easelUprightRight = new THREE.Mesh(new THREE.BoxGeometry(0.8, 14.0, 0.6), acrylicMat);
-    easelUprightRight.position.set(4.5, 7.0, -1.0);
-    easelUprightRight.rotation.x = -0.14;
-    easelUprightRight.castShadow = true;
-    easelGroup.add(easelUprightRight);
-
-    // Acrylic retaining shelf lip
-    const easelLip = new THREE.Mesh(new THREE.BoxGeometry(14.0, 1.2, 0.8), acrylicMat);
-    easelLip.position.set(0, 0.9, 3.6);
-    easelLip.castShadow = true;
-    easelGroup.add(easelLip);
-
-    // Chrome accent badge on easel shelf
-    const easelBadge = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.6, 0.1), chromeMat);
-    easelBadge.position.set(0, 0.9, 4.05);
-    easelBadge.castShadow = true;
-    easelGroup.add(easelBadge);
-
-    // The Hero Record Sleeve on the Easel (Large 12.4 x 12.4, completely unobstructed)
-    const sleeveGeometry = new THREE.BoxGeometry(12.4, 12.4, 0.2);
-    const heroSpineMat = new THREE.MeshStandardMaterial({ color: 0x22332e, roughness: 0.7 });
-    const heroFrontMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.02 });
-    const heroBackMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.02 });
-
-    const heroSleeve = new THREE.Mesh(sleeveGeometry, [
-      heroSpineMat,
-      heroSpineMat,
-      heroSpineMat,
-      heroSpineMat,
-      heroFrontMat,
-      heroBackMat,
-    ]);
-    heroSleeve.position.set(0, 7.2, 0.2);
-    heroSleeve.rotation.x = -0.14; // Angled back gently directly facing the viewer
-    heroSleeve.castShadow = true;
-    heroSleeve.receiveShadow = true;
-    easelGroup.add(heroSleeve);
-
-    // Vinyl disc peeking out of the hero sleeve
-    const heroVinyl = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 0.04, 48), vinylMat);
-    heroVinyl.rotation.x = Math.PI / 2;
-    heroVinyl.position.set(3.4, 2.2, -0.05);
-    heroSleeve.add(heroVinyl);
-
-    const heroLabelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.0 });
-    const heroLabel = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.05, 32), heroLabelMat);
-    heroLabel.rotation.x = Math.PI / 2;
-    heroLabel.position.set(3.4, 2.2, -0.03);
-    heroSleeve.add(heroLabel);
-
-    scene.add(easelGroup);
-
-    // ==================================================================
-    // 2. TRANSPARENT ACRYLIC RECORD RACK (Adjacent Collection Bin)
-    // ==================================================================
-    const rackGroup = new THREE.Group();
-    rackGroup.position.set(7.2, 0, 0);
-
-    const rackBottom = new THREE.Mesh(new THREE.BoxGeometry(15.5, 0.5, 30), acrylicMat);
-    rackBottom.position.set(0, 0.25, 0);
-    rackBottom.receiveShadow = true;
-    rackGroup.add(rackBottom);
-
-    const rackLeftSide = new THREE.Mesh(new THREE.BoxGeometry(0.7, 8.5, 30), acrylicMat);
-    rackLeftSide.position.set(-7.75, 4.5, 0);
-    rackLeftSide.castShadow = true;
-    rackLeftSide.receiveShadow = true;
-    rackGroup.add(rackLeftSide);
-
-    const rackRightSide = new THREE.Mesh(new THREE.BoxGeometry(0.7, 8.5, 30), acrylicMat);
-    rackRightSide.position.set(7.75, 4.5, 0);
-    rackRightSide.castShadow = true;
-    rackRightSide.receiveShadow = true;
-    rackGroup.add(rackRightSide);
-
-    // Low front lip
-    const rackFront = new THREE.Mesh(new THREE.BoxGeometry(16.2, 2.5, 0.7), acrylicMat);
-    rackFront.position.set(0, 1.5, 15);
-    rackFront.castShadow = true;
-    rackFront.receiveShadow = true;
-    rackGroup.add(rackFront);
-
-    const rackBack = new THREE.Mesh(new THREE.BoxGeometry(16.2, 8.5, 0.7), acrylicMat);
-    rackBack.position.set(0, 4.5, -15);
-    rackBack.castShadow = true;
-    rackBack.receiveShadow = true;
-    rackGroup.add(rackBack);
-
-    // Chrome support rails running down the rack
-    const railLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 30, 16), chromeMat);
-    railLeft.rotation.x = Math.PI / 2;
-    railLeft.position.set(-6.8, 0.7, 0);
-    rackGroup.add(railLeft);
-
-    const railRight = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 30, 16), chromeMat);
-    railRight.rotation.x = Math.PI / 2;
-    railRight.position.set(6.8, 0.7, 0);
-    rackGroup.add(railRight);
-
-    scene.add(rackGroup);
-
-    // ==================================================================
-    // 3. MODERN ACRYLIC & CHROME TURNTABLE
+    // 1. CENTER HERO: HI-FI TURNTABLE WITH TACTILE START/STOP LEVER
     // ==================================================================
     const turntableGroup = new THREE.Group();
-    turntableGroup.position.set(23.5, 0, 0);
+    turntableGroup.position.set(0, 0, 3.5); // Center stage!
 
     // Frosted acrylic plinth with chrome edge
     const ttBaseMat = new THREE.MeshPhysicalMaterial({
@@ -507,7 +559,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       transparent: true,
       opacity: 0.92,
     });
-    const ttBase = new THREE.Mesh(new THREE.BoxGeometry(17.5, 2.0, 15), ttBaseMat);
+    const ttBase = new THREE.Mesh(new THREE.BoxGeometry(18.0, 2.0, 15.5), ttBaseMat);
     ttBase.position.set(0, 1.0, 0);
     ttBase.castShadow = true;
     ttBase.receiveShadow = true;
@@ -516,10 +568,10 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     // Chrome isolation feet
     const footGeo = new THREE.CylinderGeometry(0.9, 0.7, 0.6, 24);
     [
-      [-7.2, -5.8],
-      [7.2, -5.8],
-      [-7.2, 5.8],
-      [7.2, 5.8],
+      [-7.5, -6.0],
+      [7.5, -6.0],
+      [-7.5, 6.0],
+      [7.5, 6.0],
     ].forEach(([fx, fz]) => {
       const foot = new THREE.Mesh(footGeo, chromeMat);
       foot.position.set(fx, 0.3, fz);
@@ -527,36 +579,62 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     });
 
     const topPlateMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.85 });
-    const topPlate = new THREE.Mesh(new THREE.BoxGeometry(16.8, 0.08, 14.4), topPlateMat);
+    const topPlate = new THREE.Mesh(new THREE.BoxGeometry(17.2, 0.08, 14.8), topPlateMat);
     topPlate.position.set(0, 2.05, 0);
     turntableGroup.add(topPlate);
 
     const platterMat = new THREE.MeshStandardMaterial({ color: 0x334440, roughness: 0.3, metalness: 0.8 });
-    const platter = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 0.35, 48), platterMat);
+    const platter = new THREE.Mesh(new THREE.CylinderGeometry(6.0, 6.0, 0.35, 48), platterMat);
     platter.position.set(-1.6, 2.35, 0);
     platter.castShadow = true;
     turntableGroup.add(platter);
 
-    const vinylRecord = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 0.05, 48), vinylMat);
+    const vinylRecord = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 0.05, 48), vinylMat);
     vinylRecord.position.set(-1.6, 2.55, 0);
     vinylRecord.castShadow = true;
     turntableGroup.add(vinylRecord);
 
     const centerLabelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.0 });
-    const centerLabel = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.06, 32), centerLabelMat);
+    const centerLabel = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.06, 32), centerLabelMat);
     centerLabel.position.set(-1.6, 2.56, 0);
     turntableGroup.add(centerLabel);
 
+    // Tactile Physical Start/Stop Lever
+    const leverBase = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.3, 2.2), chromeMat);
+    leverBase.position.set(-6.5, 2.15, 5.4);
+    turntableGroup.add(leverBase);
+
+    const leverPivot = new THREE.Group();
+    leverPivot.position.set(-6.5, 2.3, 5.4);
+
+    const leverStem = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.3, 16), chromeMat);
+    leverStem.position.set(0, 0.65, 0);
+    leverPivot.add(leverStem);
+
+    const jewelMat = new THREE.MeshPhysicalMaterial({
+      color: 0x00e6a8,
+      roughness: 0.1,
+      transmission: 0.5,
+      thickness: 0.5,
+      emissive: 0x004d38,
+      emissiveIntensity: 0.5,
+    });
+    const jewelKnob = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), jewelMat);
+    jewelKnob.position.set(0, 1.35, 0);
+    leverPivot.add(jewelKnob);
+
+    turntableGroup.add(leverPivot);
+
     // Tone arm
     const armPivotGroup = new THREE.Group();
-    armPivotGroup.position.set(5.5, 2.3, -4.2);
+    armPivotGroup.position.set(5.6, 2.3, -4.2);
 
     const armBase = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 1.1, 24), chromeMat);
     armBase.position.set(0, 0.55, 0);
     armBase.castShadow = true;
     armPivotGroup.add(armBase);
 
-    const armTube = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 8.0, 16), chromeMat);
+    const armTube = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 8.2, 16), chromeMat);
     armTube.position.set(-2.2, 1.3, 2.2);
     armTube.rotation.x = Math.PI / 2;
     armTube.rotation.z = -0.55;
@@ -574,7 +652,157 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     scene.add(turntableGroup);
 
     // ==================================================================
-    // 4. SLEEVES POOL (Cascading in Acrylic Rack)
+    // 2. NOW SPON EASEL (PROUDLY PROPPED BEHIND TURNTABLE)
+    // ==================================================================
+    const easelGroup = new THREE.Group();
+    easelGroup.position.set(-1.0, 5.4, -7.2); // Positioned directly behind the turntable, raised up!
+
+    const easelBase = new THREE.Mesh(new THREE.BoxGeometry(14.2, 0.6, 8.0), acrylicMat);
+    easelBase.position.set(0, 0.3, 0);
+    easelBase.castShadow = true;
+    easelGroup.add(easelBase);
+
+    const easelUprightLeft = new THREE.Mesh(new THREE.BoxGeometry(0.8, 14.0, 0.6), acrylicMat);
+    easelUprightLeft.position.set(-4.5, 7.0, -1.0);
+    easelUprightLeft.rotation.x = -0.14;
+    easelUprightLeft.castShadow = true;
+    easelGroup.add(easelUprightLeft);
+
+    const easelUprightRight = new THREE.Mesh(new THREE.BoxGeometry(0.8, 14.0, 0.6), acrylicMat);
+    easelUprightRight.position.set(4.5, 7.0, -1.0);
+    easelUprightRight.rotation.x = -0.14;
+    easelUprightRight.castShadow = true;
+    easelGroup.add(easelUprightRight);
+
+    const easelLip = new THREE.Mesh(new THREE.BoxGeometry(14.0, 1.2, 0.8), acrylicMat);
+    easelLip.position.set(0, 0.9, 3.2);
+    easelLip.castShadow = true;
+    easelGroup.add(easelLip);
+
+    const sleeveGeometry = new THREE.BoxGeometry(12.4, 12.4, 0.2);
+    const heroSpineMat = new THREE.MeshStandardMaterial({ color: 0x22332e, roughness: 0.7 });
+    const heroFrontMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.02 });
+    const heroBackMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.02 });
+
+    const heroSleeve = new THREE.Mesh(sleeveGeometry, [
+      heroSpineMat,
+      heroSpineMat,
+      heroSpineMat,
+      heroSpineMat,
+      heroFrontMat,
+      heroBackMat,
+    ]);
+    heroSleeve.position.set(0, 7.2, 0.2);
+    heroSleeve.rotation.x = -0.14;
+    heroSleeve.castShadow = true;
+    heroSleeve.receiveShadow = true;
+    easelGroup.add(heroSleeve);
+
+    const heroVinyl = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 0.04, 48), vinylMat);
+    heroVinyl.rotation.x = Math.PI / 2;
+    heroVinyl.position.set(1.2, 2.2, -0.05);
+    heroSleeve.add(heroVinyl);
+
+    const heroLabelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.0 });
+    const heroLabel = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.05, 32), heroLabelMat);
+    heroLabel.rotation.x = Math.PI / 2;
+    heroLabel.position.set(1.2, 2.2, -0.03);
+    heroSleeve.add(heroLabel);
+
+    scene.add(easelGroup);
+
+    // ==================================================================
+    // 3. LEFT WING: ACRYLIC RECORD CRATE (BROWSING BIN) + FRONT PLAQUE
+    // ==================================================================
+    const crateGroup = new THREE.Group();
+    crateGroup.position.set(-16.8, 0, 1.5);
+
+    const crateBottom = new THREE.Mesh(new THREE.BoxGeometry(15.5, 0.5, 28), acrylicMat);
+    crateBottom.position.set(0, 0.25, 0);
+    crateBottom.receiveShadow = true;
+    crateGroup.add(crateBottom);
+
+    const crateLeftSide = new THREE.Mesh(new THREE.BoxGeometry(0.7, 8.5, 28), acrylicMat);
+    crateLeftSide.position.set(-7.75, 4.5, 0);
+    crateLeftSide.castShadow = true;
+    crateLeftSide.receiveShadow = true;
+    crateGroup.add(crateLeftSide);
+
+    const crateRightSide = new THREE.Mesh(new THREE.BoxGeometry(0.7, 8.5, 28), acrylicMat);
+    crateRightSide.position.set(7.75, 4.5, 0);
+    crateRightSide.castShadow = true;
+    crateRightSide.receiveShadow = true;
+    crateGroup.add(crateRightSide);
+
+    const crateBack = new THREE.Mesh(new THREE.BoxGeometry(16.2, 8.5, 0.7), acrylicMat);
+    crateBack.position.set(0, 4.5, -14);
+    crateBack.castShadow = true;
+    crateBack.receiveShadow = true;
+    crateGroup.add(crateBack);
+
+    // Crate Front Lip
+    const crateFront = new THREE.Mesh(new THREE.BoxGeometry(16.2, 2.5, 0.7), acrylicMat);
+    crateFront.position.set(0, 1.5, 14);
+    crateFront.castShadow = true;
+    crateFront.receiveShadow = true;
+    crateGroup.add(crateFront);
+
+    // Dynamic Procedural Canvas Plaque on Crate Front
+    const cratePlaqueCanvas = document.createElement('canvas');
+    cratePlaqueCanvas.width = 512;
+    cratePlaqueCanvas.height = 128;
+    renderCratePlaqueCanvas(cratePlaqueCanvas, currentAlbum);
+
+    const cratePlaqueTex = new THREE.CanvasTexture(cratePlaqueCanvas);
+    cratePlaqueTex.colorSpace = THREE.SRGBColorSpace;
+    const cratePlaqueMat = new THREE.MeshBasicMaterial({ map: cratePlaqueTex, transparent: true });
+
+    const cratePlaqueMesh = new THREE.Mesh(new THREE.PlaneGeometry(14.8, 3.7), cratePlaqueMat);
+    cratePlaqueMesh.position.set(0, 2.0, 14.42);
+    crateGroup.add(cratePlaqueMesh);
+
+    scene.add(crateGroup);
+
+    // ==================================================================
+    // 4. RIGHT WING: GATEFOLD LINER NOTES BOOKLET (TRACKLIST OPTION B)
+    // ==================================================================
+    const bookletGroup = new THREE.Group();
+    bookletGroup.position.set(16.8, 0.25, 2.2);
+    bookletGroup.rotation.x = -0.22; // Tilted up for comfortable reading angle
+    bookletGroup.rotation.y = -0.16; // Tilted slightly towards the centered turntable
+
+    const bookletCanvas = document.createElement('canvas');
+    bookletCanvas.width = 1024;
+    bookletCanvas.height = 512;
+    renderBookletCanvas(bookletCanvas, currentPlayingAlbum, playingAlbumTracks, currentTrack?.trackId, playerPlaying);
+
+    const bookletTex = new THREE.CanvasTexture(bookletCanvas);
+    bookletTex.colorSpace = THREE.SRGBColorSpace;
+
+    const bookletMat = new THREE.MeshStandardMaterial({
+      map: bookletTex,
+      roughness: 0.35,
+      metalness: 0.05,
+    });
+    const bookletSpineMat = new THREE.MeshStandardMaterial({ color: 0x008763, roughness: 0.6 });
+
+    const bookletMesh = new THREE.Mesh(new THREE.BoxGeometry(20.0, 10.0, 0.16), [
+      bookletSpineMat,
+      bookletSpineMat,
+      bookletSpineMat,
+      bookletSpineMat,
+      bookletMat,
+      bookletMat,
+    ]);
+    bookletMesh.position.set(0, 5.0, 0);
+    bookletMesh.castShadow = true;
+    bookletMesh.receiveShadow = true;
+    bookletGroup.add(bookletMesh);
+
+    scene.add(bookletGroup);
+
+    // ==================================================================
+    // 5. SLEEVES POOL (Cascading in Left Wing Acrylic Rack)
     // ==================================================================
     const MAX_VISIBLE_SLEEVES = 24;
     const rackSleeveGeo = new THREE.BoxGeometry(11.8, 11.8, 0.16);
@@ -589,7 +817,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       sleeveMesh.castShadow = true;
       sleeveMesh.receiveShadow = true;
       sleeveMesh.visible = false;
-      rackGroup.add(sleeveMesh);
+      crateGroup.add(sleeveMesh);
 
       sleevePool.push({ mesh: sleeveMesh, frontMat, backMat, albumIndex: -1 });
     }
@@ -597,6 +825,13 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     let continuousPos = posRef.current.target;
     let targetArmRotation = 0.05;
     let currentArmRotation = 0.05;
+
+    // Track previous rendered data to avoid unnecessary canvas repainting
+    let lastRenderedAlbumId = null;
+    let lastRenderedPlayingAlbumId = null;
+    let lastRenderedTrackId = null;
+    let lastRenderedPlayingState = null;
+    let lastRenderedTracksCount = 0;
 
     // Continuous Animation Loop
     const animate = () => {
@@ -613,7 +848,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         continuousPos = posRef.current.target;
       }
 
-      // Turntable animation & vinyl disc motion
+      // Turntable animation & physical lever
       if (state.playerPlaying) {
         platter.rotation.y -= 0.035;
         vinylRecord.rotation.y -= 0.035;
@@ -623,18 +858,51 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         targetArmRotation = 0.36;
         heroVinyl.position.x = 3.4;
         heroLabel.position.x = 3.4;
+        leverPivot.rotation.x = THREE.MathUtils.lerp(leverPivot.rotation.x, 0.35, 0.1);
+        jewelMat.emissiveIntensity = 0.8;
       } else {
         targetArmRotation = 0.05;
         heroVinyl.position.x = 1.2;
         heroLabel.position.x = 1.2;
+        leverPivot.rotation.x = THREE.MathUtils.lerp(leverPivot.rotation.x, 0, 0.1);
+        jewelMat.emissiveIntensity = 0.3;
       }
       currentArmRotation += (targetArmRotation - currentArmRotation) * 0.08;
       armPivotGroup.rotation.y = currentArmRotation;
 
-      // The easel showcases the album currently playing! (falls back to selected if none playing yet)
-      const currentPlayingAlbum = albums.find((a) => a.albumId === state.playingAlbumId);
-      const easelAlbum = currentPlayingAlbum || filtered[state.selectedIndex] || filtered[0];
-      const easelThumb = easelAlbum?.thumbMd || easelAlbum?.thumbSm;
+      // Update Crate Plaque Canvas when selected album changes
+      const activeCrateAlb = filtered[state.selectedIndex] || filtered[0];
+      if (activeCrateAlb && activeCrateAlb.albumId !== lastRenderedAlbumId) {
+        lastRenderedAlbumId = activeCrateAlb.albumId;
+        renderCratePlaqueCanvas(cratePlaqueCanvas, activeCrateAlb);
+        cratePlaqueTex.needsUpdate = true;
+      }
+
+      // Update Gatefold Booklet Canvas when playing album or track changes
+      const playingAlb = state.currentPlayingAlbum;
+      const trks = state.playingAlbumTracks;
+      const curTrk = state.currentTrack;
+      const curTrkId = curTrk?.trackId;
+      const isPlay = state.playerPlaying;
+
+      if (
+        playingAlb?.albumId !== lastRenderedPlayingAlbumId ||
+        curTrkId !== lastRenderedTrackId ||
+        isPlay !== lastRenderedPlayingState ||
+        trks.length !== lastRenderedTracksCount
+      ) {
+        lastRenderedPlayingAlbumId = playingAlb?.albumId;
+        lastRenderedTrackId = curTrkId;
+        lastRenderedPlayingState = isPlay;
+        lastRenderedTracksCount = trks.length;
+
+        renderBookletCanvas(bookletCanvas, playingAlb, trks, curTrkId, isPlay);
+        bookletTex.needsUpdate = true;
+      }
+
+      // The easel showcases the album currently playing!
+      const currentPlayingAlbum = albums.find((a) => a.albumId === state.playingAlbumId) || playingAlb;
+      const easelThumb = currentPlayingAlbum?.thumbMd || currentPlayingAlbum?.thumbSm;
       if (easelThumb) {
         const tex = getTexture(easelThumb);
         if (tex) {
@@ -650,16 +918,10 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
             heroLabelMat.map = tex;
             heroLabelMat.needsUpdate = true;
           }
-        }
-      }
-
-      // Turntable center label texture (uses the same currently playing album)
-      const playingThumb = currentPlayingAlbum?.thumbMd || currentPlayingAlbum?.thumbSm;
-      if (playingThumb) {
-        const tex = getTexture(playingThumb);
-        if (tex && centerLabelMat.map !== tex) {
-          centerLabelMat.map = tex;
-          centerLabelMat.needsUpdate = true;
+          if (centerLabelMat.map !== tex) {
+            centerLabelMat.map = tex;
+            centerLabelMat.needsUpdate = true;
+          }
         }
       }
 
@@ -699,10 +961,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           }
         }
 
-        // Arrangement in the transparent acrylic rack:
-        // delta < 0: records flipped forward into front well (+Z), angled forward
-        // delta === 0: active transition point
-        // delta > 0: upright records stacked behind (-Z)
+        // Arrangement in the transparent acrylic rack
         const delta = idx - continuousPos;
         let targetZ = 0;
         let targetRotX = 0;
@@ -710,13 +969,13 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
         if (delta < -0.2) {
           const flipOffset = -delta;
-          targetZ = 3.5 + Math.min(10.0, flipOffset * 0.45);
+          targetZ = 3.5 + Math.min(9.5, flipOffset * 0.45);
           targetY = 1.4;
-          targetRotX = 0.88; // Flipped forward resting in front well
+          targetRotX = 0.88;
         } else if (delta > 0.2) {
           targetZ = -1.2 - delta * 0.45;
           targetY = 5.9;
-          targetRotX = -0.18; // Upright waiting in rear rack
+          targetRotX = -0.18;
         } else {
           const flipFactor = (delta + 0.2) / 0.4;
           targetRotX = THREE.MathUtils.lerp(0.88, -0.18, flipFactor);
@@ -750,9 +1009,10 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       const rect = canvas.getBoundingClientRect();
       const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const ny = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-      camera.position.x = 0.5 + nx * 2.5;
-      camera.position.y = 18 + ny * 1.2;
-      camera.lookAt(0.5, 5.5, 0);
+      // Slight 3/4 baseline parallax
+      camera.position.x = 3.8 + nx * 2.2;
+      camera.position.y = 19.2 + ny * 1.1;
+      camera.lookAt(0, 5.2, 0);
 
       if (!posRef.current.isDragging) return;
       const diffX = e.clientX - posRef.current.dragStartX;
@@ -794,7 +1054,14 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       mouseVector.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
       raycaster.setFromCamera(mouseVector, camera);
 
-      // Check if clicking Hero Easel (toggle playback of current playing album)
+      // 1. Check if clicking Turntable Start/Stop lever or Platter
+      const ttHits = raycaster.intersectObjects([platter, vinylRecord, leverBase, jewelKnob], true);
+      if (ttHits.length > 0) {
+        handleTogglePlay();
+        return;
+      }
+
+      // 2. Check if clicking Hero Easel
       const heroHits = raycaster.intersectObject(heroSleeve, false);
       if (heroHits.length > 0) {
         if (stateRef.current.playingAlbumId) {
@@ -805,7 +1072,45 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         return;
       }
 
-      // Check if clicking a record in the rack
+      // 3. Check if clicking Crate Plaque
+      const plaqueHits = raycaster.intersectObject(cratePlaqueMesh, false);
+      if (plaqueHits.length > 0) {
+        handlePlayAlbum();
+        return;
+      }
+
+      // 4. Check if clicking Gatefold Liner Notes Booklet (Tracklist Option B)
+      const bookletHits = raycaster.intersectObject(bookletMesh, false);
+      if (bookletHits.length > 0) {
+        const hit = bookletHits[0];
+        if (hit.uv) {
+          const uvX = hit.uv.x;
+          const uvY = hit.uv.y;
+
+          // If clicking on the right page (Tracklist area: x >= 0.52)
+          if (uvX >= 0.52) {
+            // Tracklist rows run from canvas Y: 105 to 457 (uvY 0.79 down to 0.10)
+            const canvasY = (1 - uvY) * 512;
+            const startY = 105;
+            const rowHeight = 44;
+            const trks = stateRef.current.playingAlbumTracks || [];
+
+            if (canvasY >= startY - 20 && canvasY <= startY + 8 * rowHeight) {
+              const clickedIdx = Math.floor((canvasY - (startY - 20)) / rowHeight);
+              if (clickedIdx >= 0 && clickedIdx < trks.length) {
+                handlePlayTrack(clickedIdx);
+                return;
+              }
+            }
+          } else {
+            // Clicking left page toggles album play/pause
+            handleTogglePlay();
+            return;
+          }
+        }
+      }
+
+      // 5. Check if clicking a record in the crate
       const visibleMeshes = sleevePool.filter((s) => s.mesh.visible).map((s) => s.mesh);
       const intersects = raycaster.intersectObjects(visibleMeshes, false);
 
@@ -850,8 +1155,11 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       renderer.dispose();
       textureCache.forEach((tex) => tex.dispose());
       bgTex.dispose();
+      cratePlaqueTex.dispose();
+      bookletTex.dispose();
     };
-  }, [albums, handlePlayAlbum, handleTogglePlay, goToIndex]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [albums, handlePlayAlbum, handleTogglePlay, handlePlayTrack, goToIndex]);
 
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
   const handleAZClick = (letter) => {
@@ -903,90 +1211,30 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         <div className={style.topBarRight} />
       </div>
 
-      {/* Unified Bottom-Left Dock: Selected Album Card + Integrated Now Spinning Player Bar */}
+      {/* Streamlined Bottom-Left Dock: Now Spinning Player Bar Only (Upper card removed) */}
       <div className={style.bottomLeftDock}>
-        {/* Selected Record on Hero Display Easel */}
-        {currentAlbum && (
-          <div className={style.activeCard}>
-            <div className={style.cardTop}>
-              <img
-                src={currentAlbum.thumbMd || currentAlbum.thumbSm || '/images/artwork-placeholder.png'}
-                alt={currentAlbum.title}
-                className={style.albumCoverMini}
-              />
-              <div className={style.meta}>
-                <div className={style.albumTitle} title={currentAlbum.title}>
-                  {currentAlbum.title}
-                </div>
-                <div
-                  className={style.artistName}
-                  onClick={() => {
-                    if (currentAlbum.artistId) {
-                      history.push(`/artists/${currentAlbum.artistId}`);
-                    }
-                  }}
-                  title={currentAlbum.artist}
-                >
-                  {currentAlbum.artist}
-                </div>
-                <div className={style.subInfo}>
-                  {currentAlbum.releaseDate && <span>{formatReleaseYear(currentAlbum.releaseDate)}</span>}
-                  {currentAlbum.totalTracks && <span>• {currentAlbum.totalTracks} tracks</span>}
-                  {currentAlbum.duration && <span>• {durationToStringMed(currentAlbum.duration)}</span>}
-                </div>
-              </div>
-            </div>
-
-            <div className={style.actionsRow}>
-              <button className={style.playButton} onClick={handlePlayAlbum}>
-                <Icon
-                  icon={playingAlbumId === currentAlbum.albumId && playerPlaying ? 'PauseFilledIcon' : 'PlayFilledIcon'}
-                  size={15}
-                />
-                <span>{playingAlbumId === currentAlbum.albumId && playerPlaying ? 'Pause' : 'Play Album'}</span>
-              </button>
-
-              <button className={style.iconBtn} onClick={handleShuffleAlbum} title="Shuffle Album">
-                <Icon icon="ShuffleIcon" size={16} stroke />
-              </button>
-
-              <button
-                className={clsx(style.iconBtn, { [style.active]: showTracklist })}
-                onClick={() => setShowTracklist(!showTracklist)}
-                title="Toggle Tracklist"
-              >
-                <Icon icon="ListIcon" size={16} stroke />
-              </button>
-
-              <button
-                className={style.iconBtn}
-                onClick={() => history.push(`/albums/${currentAlbum.albumId}`)}
-                title="View Full Album Details"
-              >
-                <Icon icon="InfoIcon" size={16} stroke />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Integrated Now Spinning & Media Controls Player Bar */}
         <div className={style.playerDock}>
-          <div className={style.nowSpinningSection}>
+          <div
+            className={style.nowSpinningSection}
+            onClick={handleTogglePlay}
+            title="Click to toggle playback"
+            style={{ cursor: 'pointer' }}
+          >
             <div className={clsx(style.spinningDisc, { [style.active]: playerPlaying })} />
             <div className={style.spinningInfo}>
               <span className={style.label}>{playerPlaying ? 'Now Spinning' : 'Turntable Ready'}</span>
               <span className={style.title}>
                 {currentTrack
                   ? currentTrack.title || 'Unknown Title'
-                  : currentAlbum
-                    ? currentAlbum.title
+                  : currentPlayingAlbum
+                    ? currentPlayingAlbum.title
                     : 'Ready to Spin'}
               </span>
               <span className={style.artist}>
                 {currentTrack
                   ? currentTrack.artist || 'Unknown Artist'
-                  : currentAlbum
-                    ? currentAlbum.artist
+                  : currentPlayingAlbum
+                    ? currentPlayingAlbum.artist
                     : 'Chromatix Vinyl'}
               </span>
             </div>
@@ -1009,39 +1257,6 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           </div>
         </div>
       </div>
-
-      {/* Slide-out Tracklist Drawer */}
-      {showTracklist && currentAlbum && (
-        <div className={style.tracklistDrawer}>
-          <div className={style.drawerHeader}>
-            <div className={style.titleWrap}>
-              <h3>{currentAlbum.title}</h3>
-              <p>{currentAlbum.artist}</p>
-            </div>
-            <button className={style.closeDrawerBtn} onClick={() => setShowTracklist(false)}>
-              ×
-            </button>
-          </div>
-
-          <div className={style.trackListScroll}>
-            {albumTracks && albumTracks.length > 0 ? (
-              albumTracks.map((trk, i) => (
-                <div
-                  key={trk.trackId || i}
-                  className={clsx(style.trackRow, { [style.activeTrack]: currentTrack?.trackId === trk.trackId })}
-                  onClick={() => handlePlayTrack(i)}
-                >
-                  <span className={style.trackNum}>{i + 1}</span>
-                  <span className={style.trackTitle}>{trk.title}</span>
-                  <span className={style.trackDuration}>{durationToStringMed(trk.duration)}</span>
-                </div>
-              ))
-            ) : (
-              <div className={style.emptyTracks}>Loading tracklist...</div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Bottom Center Scrubber & A-Z bar */}
       <div className={style.bottomBar}>
