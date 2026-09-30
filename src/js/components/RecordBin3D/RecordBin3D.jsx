@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import clsx from 'clsx';
 
 import { Icon } from 'js/components';
-import { durationToStringMed, formatReleaseYear } from 'js/utils';
+import { durationToStringMed, formatReleaseYear, getLocalStorage, setLocalStorage } from 'js/utils';
 import * as bridge from 'js/services/bridge';
 
 import style from './RecordBin3D.module.scss';
@@ -72,26 +72,41 @@ function drawRoundRect(ctx, x, y, w, h, r) {
   }
 }
 
-function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, scrollY = 0, hoveredTrackIdx = -1) {
+function renderTrackCardCanvas(
+  canvas,
+  album,
+  tracks,
+  activeTrackId,
+  isPlaying,
+  scrollY = 0,
+  hoveredTrackIdx = -1,
+  isDark = true
+) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
   const h = canvas.height;
 
-  // Background: Clean premium frosted card with subtle emerald sheen
+  // Background: Clean premium frosted card with subtle emerald sheen (Adaptive Day/Night)
   const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, '#fcfdfd');
-  grad.addColorStop(0.3, '#f5faf7');
-  grad.addColorStop(1, '#e9f4ef');
+  if (isDark) {
+    grad.addColorStop(0, '#0d1816');
+    grad.addColorStop(0.35, '#091311');
+    grad.addColorStop(1, '#050c0a');
+  } else {
+    grad.addColorStop(0, '#fcfdfd');
+    grad.addColorStop(0.3, '#f5faf7');
+    grad.addColorStop(1, '#e9f4ef');
+  }
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
   // Subtle metallic emerald border
-  ctx.strokeStyle = 'rgba(0, 160, 115, 0.35)';
+  ctx.strokeStyle = isDark ? 'rgba(0, 230, 168, 0.35)' : 'rgba(0, 160, 115, 0.35)';
   ctx.lineWidth = 5;
   ctx.strokeRect(5, 5, w - 10, h - 10);
 
   // Top header accent line
-  ctx.fillStyle = '#00b686';
+  ctx.fillStyle = isDark ? '#00ffa8' : '#00b686';
   ctx.fillRect(5, 5, w - 10, 6);
 
   // -------------------------------------------------------------
@@ -100,26 +115,26 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
   ctx.save();
 
   // Status Badge
-  ctx.fillStyle = isPlaying ? '#008763' : '#496d63';
+  ctx.fillStyle = isPlaying ? (isDark ? '#00ffa8' : '#008763') : isDark ? '#5c8a7d' : '#496d63';
   ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
   ctx.fillText(isPlaying ? '● NOW PLAYING' : 'TURNTABLE READY', 48, 52);
 
   // Album Title
-  ctx.fillStyle = '#0b2921';
+  ctx.fillStyle = isDark ? '#f4fcfa' : '#0b2921';
   ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
   const title = album?.title || 'No Album Selected';
   const truncTitle = title.length > 38 ? title.slice(0, 38) + '…' : title;
   ctx.fillText(truncTitle, 48, 98);
 
   // Artist Name
-  ctx.fillStyle = '#008763';
+  ctx.fillStyle = isDark ? '#00e6a8' : '#008763';
   ctx.font = '600 24px system-ui, -apple-system, sans-serif';
   const artist = album?.artist || 'Unknown Artist';
   const truncArtist = artist.length > 44 ? artist.slice(0, 44) + '…' : artist;
   ctx.fillText(truncArtist, 48, 134);
 
   // Release Info & Totals
-  ctx.fillStyle = '#496d63';
+  ctx.fillStyle = isDark ? '#7faea2' : '#496d63';
   ctx.font = '500 19px system-ui, -apple-system, sans-serif';
   const yearStr = album?.releaseDate ? formatReleaseYear(album.releaseDate) : 'Vinyl Edition';
   const totalTrks = tracks?.length || album?.totalTracks || 0;
@@ -129,7 +144,7 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
   ctx.fillText(metaLine, 48, 168);
 
   // Clean Header Divider
-  ctx.strokeStyle = 'rgba(0, 140, 100, 0.2)';
+  ctx.strokeStyle = isDark ? 'rgba(0, 230, 168, 0.2)' : 'rgba(0, 140, 100, 0.2)';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(48, 186);
@@ -139,12 +154,12 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
   // -------------------------------------------------------------
   // TRACKLIST HEADER
   // -------------------------------------------------------------
-  ctx.fillStyle = '#008763';
+  ctx.fillStyle = isDark ? '#00ffa8' : '#008763';
   ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
   ctx.fillText('TRACKLIST • CLICK SONG TO PLAY', 48, 218);
 
   if (totalTrks > 0) {
-    ctx.fillStyle = '#496d63';
+    ctx.fillStyle = isDark ? '#7faea2' : '#496d63';
     ctx.font = '600 17px system-ui, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(`${totalTrks} TRACKS`, w - 48, 218);
@@ -162,7 +177,7 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
   const scrollOffset = Math.max(0, Math.min(maxScroll, scrollY));
 
   if (!tracks || tracks.length === 0) {
-    ctx.fillStyle = '#5a786f';
+    ctx.fillStyle = isDark ? '#5c8a7d' : '#5a786f';
     ctx.font = 'italic 22px system-ui, sans-serif';
     ctx.fillText('Loading track details...', 48, 300);
   } else {
@@ -182,28 +197,28 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
 
       // Row background
       if (isTrkActive) {
-        ctx.fillStyle = 'rgba(0, 182, 134, 0.22)';
+        ctx.fillStyle = isDark ? 'rgba(0, 255, 168, 0.18)' : 'rgba(0, 182, 134, 0.22)';
         ctx.beginPath();
         drawRoundRect(ctx, 44, rowY + 4, w - 88, 48, 8);
         ctx.fill();
-        ctx.strokeStyle = '#00b686';
+        ctx.strokeStyle = isDark ? '#00ffa8' : '#00b686';
         ctx.lineWidth = 2;
         ctx.beginPath();
         drawRoundRect(ctx, 44, rowY + 4, w - 88, 48, 8);
         ctx.stroke();
       } else if (isTrkHovered) {
-        ctx.fillStyle = 'rgba(0, 182, 134, 0.10)';
+        ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 182, 134, 0.10)';
         ctx.beginPath();
         drawRoundRect(ctx, 44, rowY + 4, w - 88, 48, 8);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0, 182, 134, 0.35)';
+        ctx.strokeStyle = isDark ? 'rgba(0, 255, 168, 0.35)' : 'rgba(0, 182, 134, 0.35)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         drawRoundRect(ctx, 44, rowY + 4, w - 88, 48, 8);
         ctx.stroke();
       } else {
         // Subtle divider hairline between normal rows
-        ctx.strokeStyle = 'rgba(0, 140, 100, 0.08)';
+        ctx.strokeStyle = isDark ? 'rgba(0, 230, 168, 0.08)' : 'rgba(0, 140, 100, 0.08)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(56, rowY + rowHeight);
@@ -212,20 +227,40 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
       }
 
       // Track Number or Play Indicator
-      ctx.fillStyle = isTrkActive ? '#008763' : isTrkHovered ? '#006c4f' : '#496d63';
+      ctx.fillStyle = isTrkActive
+        ? isDark
+          ? '#00ffa8'
+          : '#008763'
+        : isTrkHovered
+          ? isDark
+            ? '#7ef7d4'
+            : '#006c4f'
+          : isDark
+            ? '#5c8a7d'
+            : '#496d63';
       ctx.font = isTrkActive ? 'bold 22px system-ui, sans-serif' : '600 20px system-ui, sans-serif';
       const numStr = isTrkActive && isPlaying ? '▶' : String(idx + 1).padStart(2, '0');
       ctx.fillText(numStr, 58, rowY + 34);
 
       // Track Title
-      ctx.fillStyle = isTrkActive ? '#005b42' : isTrkHovered ? '#004331' : '#0b2921';
+      ctx.fillStyle = isTrkActive
+        ? isDark
+          ? '#ffffff'
+          : '#005b42'
+        : isTrkHovered
+          ? isDark
+            ? '#ffffff'
+            : '#004331'
+          : isDark
+            ? '#e4f7f2'
+            : '#0b2921';
       ctx.font = isTrkActive ? 'bold 22px system-ui, sans-serif' : '500 21px system-ui, sans-serif';
       const rawTitle = trk.title || `Track ${idx + 1}`;
       const songTitle = rawTitle.length > 46 ? rawTitle.slice(0, 46) + '…' : rawTitle;
       ctx.fillText(songTitle, 106, rowY + 34);
 
       // Duration
-      ctx.fillStyle = isTrkActive ? '#008763' : '#5a786f';
+      ctx.fillStyle = isTrkActive ? (isDark ? '#00ffa8' : '#008763') : isDark ? '#7faea2' : '#5a786f';
       ctx.font = '500 19px system-ui, sans-serif';
       ctx.textAlign = 'right';
       const dur = trk.duration ? durationToStringMed(trk.duration) : '';
@@ -236,15 +271,15 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
     // Top and bottom edge gradient fade for soft transition when scrolled
     if (scrollOffset > 4) {
       const topFade = ctx.createLinearGradient(0, viewportTop, 0, viewportTop + 20);
-      topFade.addColorStop(0, '#f7fbf8');
-      topFade.addColorStop(1, 'rgba(247, 251, 248, 0)');
+      topFade.addColorStop(0, isDark ? '#091311' : '#f7fbf8');
+      topFade.addColorStop(1, isDark ? 'rgba(9, 19, 17, 0)' : 'rgba(247, 251, 248, 0)');
       ctx.fillStyle = topFade;
       ctx.fillRect(44, viewportTop, w - 88, 20);
     }
     if (scrollOffset < maxScroll - 4) {
       const btmFade = ctx.createLinearGradient(0, viewportBottom - 20, 0, viewportBottom);
-      btmFade.addColorStop(0, 'rgba(235, 244, 240, 0)');
-      btmFade.addColorStop(1, '#ebf4f0');
+      btmFade.addColorStop(0, isDark ? 'rgba(5, 12, 10, 0)' : 'rgba(235, 244, 240, 0)');
+      btmFade.addColorStop(1, isDark ? '#050c0a' : '#ebf4f0');
       ctx.fillStyle = btmFade;
       ctx.fillRect(44, viewportBottom - 20, w - 88, 20);
     }
@@ -258,7 +293,7 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
       const scrollbarTrackHeight = viewportHeight;
 
       // Track groove
-      ctx.fillStyle = 'rgba(0, 45, 30, 0.08)';
+      ctx.fillStyle = isDark ? 'rgba(0, 255, 168, 0.08)' : 'rgba(0, 45, 30, 0.08)';
       ctx.beginPath();
       drawRoundRect(ctx, scrollbarX, viewportTop, scrollbarWidth, scrollbarTrackHeight, 3);
       ctx.fill();
@@ -267,7 +302,7 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
       const thumbHeight = Math.max(36, (viewportHeight / (totalTrks * rowHeight)) * scrollbarTrackHeight);
       const thumbY = viewportTop + (scrollOffset / maxScroll) * (scrollbarTrackHeight - thumbHeight);
 
-      ctx.fillStyle = 'rgba(0, 160, 110, 0.65)';
+      ctx.fillStyle = isDark ? 'rgba(0, 255, 168, 0.65)' : 'rgba(0, 160, 110, 0.65)';
       ctx.beginPath();
       drawRoundRect(ctx, scrollbarX, thumbY, scrollbarWidth, thumbHeight, 3);
       ctx.fill();
@@ -306,6 +341,22 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const [sceneTheme, setSceneTheme] = useState(() => {
+    const saved = getLocalStorage('chromatix_record_bin_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return 'dark'; // Default to dark mode scene as requested
+  });
+
+  const isDark = sceneTheme === 'dark';
+
+  const handleToggleTheme = useCallback(() => {
+    setSceneTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      setLocalStorage('chromatix_record_bin_theme', next);
+      return next;
+    });
+  }, []);
 
   const filteredAlbums = useMemo(() => {
     if (!searchQuery.trim()) return albums;
@@ -497,6 +548,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       } else if (e.key === 'd' || e.key === 'D') {
         e.preventDefault();
         handleOpenDownload();
+      } else if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        handleToggleTheme();
       } else if (e.key === 'Escape') {
         handleExit();
       }
@@ -504,7 +558,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToIndex, handleTogglePlay, handlePlayAlbum, handleOpenDownload, handleExit]);
+  }, [goToIndex, handleTogglePlay, handlePlayAlbum, handleOpenDownload, handleExit, handleToggleTheme]);
 
   // ======================================================================
   // THREE.JS GLASSHOUSE FOREST CONSERVATORY SCENE
@@ -517,8 +571,11 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     const width = mountRef.current.clientWidth || window.innerWidth;
     const height = mountRef.current.clientHeight || window.innerHeight;
 
+    const isDark = sceneTheme === 'dark';
+
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0xd0e8df, 0.007);
+    const fogColor = isDark ? 0x061412 : 0xd0e8df;
+    scene.fog = new THREE.FogExp2(fogColor, isDark ? 0.008 : 0.007);
 
     // BALANCED THREE-WING PERSPECTIVE:
     // Pulled back and angled upward so both wings (crate on left, unified tracklist on right)
@@ -533,7 +590,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = isDark ? 1.08 : 1.15;
 
     mountRef.current.replaceChildren(renderer.domElement);
 
@@ -555,8 +612,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       return tex;
     };
 
-    // Load High-Res Forest Conservatory Panorama
-    const bgTex = textureLoader.load('/images/conservatory-bg.jpg', (tex) => {
+    // Load High-Res Background Panorama (Day Conservatory vs Night Botanical Glasshouse)
+    const bgPath = isDark ? '/images/conservatory-night-bg.jpg' : '/images/conservatory-bg.jpg';
+    const bgTex = textureLoader.load(bgPath, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.mapping = THREE.EquirectangularReflectionMapping;
       scene.background = tex;
@@ -573,11 +631,11 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     backdropMesh.position.set(0, 15, -12);
     scene.add(backdropMesh);
 
-    // Natural Conservatory Sunlighting
-    const ambientLight = new THREE.AmbientLight(0xdcf3ea, 1.25);
+    // Natural Conservatory Sunlighting / Night Bioluminescent Moonlighting
+    const ambientLight = new THREE.AmbientLight(isDark ? 0x0c2420 : 0xdcf3ea, isDark ? 1.15 : 1.25);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffaec, 2.2);
+    const sunLight = new THREE.DirectionalLight(isDark ? 0x8ef5e7 : 0xfffaec, isDark ? 1.85 : 2.2);
     sunLight.position.set(28, 48, 25);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
@@ -591,19 +649,19 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     sunLight.shadow.bias = -0.0004;
     scene.add(sunLight);
 
-    const forestFillLight = new THREE.DirectionalLight(0x9ef0df, 0.9);
+    const forestFillLight = new THREE.DirectionalLight(isDark ? 0x095240 : 0x9ef0df, isDark ? 1.2 : 0.9);
     forestFillLight.position.set(-28, 24, 15);
     scene.add(forestFillLight);
 
-    const rimLight = new THREE.DirectionalLight(0xd0f5ff, 0.7);
+    const rimLight = new THREE.DirectionalLight(isDark ? 0x00ffa8 : 0xd0f5ff, isDark ? 1.35 : 0.7);
     rimLight.position.set(0, 30, -28);
     scene.add(rimLight);
 
-    // Floating Polished White Carrara Marble Console with Frosted Cyan Trim
+    // Floating Console Console Table (Polished Marble Day / Polished Obsidian Night)
     const consoleMat = new THREE.MeshPhysicalMaterial({
-      color: 0xf5fbf9,
-      roughness: 0.1,
-      metalness: 0.03,
+      color: isDark ? 0x091412 : 0xf5fbf9,
+      roughness: isDark ? 0.12 : 0.1,
+      metalness: isDark ? 0.25 : 0.03,
       clearcoat: 0.85,
       clearcoatRoughness: 0.08,
     });
@@ -613,27 +671,29 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     scene.add(consoleMesh);
 
     const glassTrimMat = new THREE.MeshPhysicalMaterial({
-      color: 0x4ee1be,
-      transmission: 0.85,
+      color: isDark ? 0x00e6a8 : 0x4ee1be,
+      transmission: isDark ? 0.75 : 0.85,
       roughness: 0.15,
       ior: 1.5,
       thickness: 0.8,
       transparent: true,
-      opacity: 0.85,
+      opacity: isDark ? 0.92 : 0.85,
+      emissive: isDark ? 0x004d38 : 0x000000,
+      emissiveIntensity: isDark ? 0.4 : 0,
     });
     const glassTrim = new THREE.Mesh(new THREE.BoxGeometry(118.4, 0.35, 56.4), glassTrimMat);
     glassTrim.position.set(0, -0.05, 0);
     scene.add(glassTrim);
 
-    // Frutiger Aero Crystal Acrylic Materials
+    // Crystal Acrylic Materials (Clear Day / Smoked Emerald-Tinted Night)
     const acrylicMat = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      transmission: 0.94,
-      roughness: 0.05,
+      color: isDark ? 0x0c251e : 0xffffff,
+      transmission: isDark ? 0.82 : 0.94,
+      roughness: isDark ? 0.08 : 0.05,
       ior: 1.52,
-      thickness: 1.2,
+      thickness: isDark ? 1.6 : 1.2,
       transparent: true,
-      opacity: 0.92,
+      opacity: isDark ? 0.94 : 0.92,
       specularIntensity: 1.0,
     });
 
@@ -657,13 +717,15 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
 
     // Frosted acrylic plinth with chrome edge
     const ttBaseMat = new THREE.MeshPhysicalMaterial({
-      color: 0xddf8f2,
-      transmission: 0.9,
+      color: isDark ? 0x0a1815 : 0xddf8f2,
+      transmission: isDark ? 0.8 : 0.9,
       roughness: 0.08,
       ior: 1.5,
       thickness: 1.5,
       transparent: true,
       opacity: 0.92,
+      emissive: isDark ? 0x003325 : 0x000000,
+      emissiveIntensity: isDark ? 0.4 : 0,
     });
     const ttBase = new THREE.Mesh(new THREE.BoxGeometry(18.0, 2.0, 15.5), ttBaseMat);
     ttBase.position.set(0, 1.0, 0);
@@ -684,12 +746,20 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       turntableGroup.add(foot);
     });
 
-    const topPlateMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.85 });
+    const topPlateMat = new THREE.MeshStandardMaterial({
+      color: isDark ? 0x12201d : 0xffffff,
+      roughness: 0.2,
+      metalness: 0.85,
+    });
     const topPlate = new THREE.Mesh(new THREE.BoxGeometry(17.2, 0.08, 14.8), topPlateMat);
     topPlate.position.set(0, 2.05, 0);
     turntableGroup.add(topPlate);
 
-    const platterMat = new THREE.MeshStandardMaterial({ color: 0x334440, roughness: 0.3, metalness: 0.8 });
+    const platterMat = new THREE.MeshStandardMaterial({
+      color: isDark ? 0x1a2623 : 0x334440,
+      roughness: 0.3,
+      metalness: 0.8,
+    });
     const platter = new THREE.Mesh(new THREE.CylinderGeometry(6.0, 6.0, 0.35, 48), platterMat);
     platter.position.set(-1.6, 2.35, 0);
     platter.castShadow = true;
@@ -700,7 +770,11 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     vinylRecord.castShadow = true;
     turntableGroup.add(vinylRecord);
 
-    const centerLabelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.0 });
+    const centerLabelMat = new THREE.MeshStandardMaterial({
+      color: isDark ? 0x00ffa8 : 0xffffff,
+      roughness: 0.6,
+      metalness: 0.0,
+    });
     const centerLabel = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.06, 32), centerLabelMat);
     centerLabel.position.set(-1.6, 2.56, 0);
     turntableGroup.add(centerLabel);
@@ -871,7 +945,10 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       currentPlayingAlbum,
       playingAlbumTracks,
       currentTrack?.trackId,
-      playerPlaying
+      playerPlaying,
+      0,
+      -1,
+      isDark
     );
 
     const trackCardTex = new THREE.CanvasTexture(trackCardCanvas);
@@ -885,9 +962,12 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       roughness: 0.28,
       metalness: 0.05,
     });
-    const cardEdgeMat = new THREE.MeshStandardMaterial({ color: 0x008763, roughness: 0.5 });
+    const cardEdgeMat = new THREE.MeshStandardMaterial({
+      color: isDark ? 0x00a875 : 0x008763,
+      roughness: 0.5,
+    });
     const cardBackMat = new THREE.MeshPhysicalMaterial({
-      color: 0xf5fbf9,
+      color: isDark ? 0x081310 : 0xf5fbf9,
       roughness: 0.15,
       metalness: 0.05,
       clearcoat: 0.8,
@@ -1069,7 +1149,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         lastRenderedScroll = scrollPos;
         lastRenderedHoverIdx = hovIdx;
 
-        renderTrackCardCanvas(trackCardCanvas, playingAlb, trks, curTrkId, isPlay, scrollPos, hovIdx);
+        renderTrackCardCanvas(trackCardCanvas, playingAlb, trks, curTrkId, isPlay, scrollPos, hovIdx, isDark);
         trackCardTex.needsUpdate = true;
       }
 
@@ -1479,7 +1559,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       trackCardTex.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [albums, handlePlayAlbum, handleTogglePlay, handlePlayTrack, goToIndex]);
+  }, [albums, handlePlayAlbum, handleTogglePlay, handlePlayTrack, goToIndex, sceneTheme]);
 
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
   const handleAZClick = (letter) => {
@@ -1495,7 +1575,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
   };
 
   return (
-    <div className={style.container} ref={containerRef}>
+    <div className={clsx(style.container, { [style.darkMode]: isDark })} ref={containerRef}>
       <div className={style.canvasWrap} ref={mountRef} />
 
       {/* Top Floating Bar: Minimalist with clear right side for Library switcher */}
@@ -1513,6 +1593,49 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           >
             <Icon icon="DownloadIcon" size={16} stroke />
             <span>{isDownloading ? downloadProgress?.percent || 'Downloading…' : 'Download'}</span>
+          </button>
+          <button
+            type="button"
+            className={style.themeToggleBtn}
+            onClick={handleToggleTheme}
+            title={isDark ? 'Switch to Sunlit Conservatory (T)' : 'Switch to Midnight Lounge (T)'}
+          >
+            {isDark ? (
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+            ) : (
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
+            <span>{isDark ? 'Day' : 'Night'}</span>
           </button>
           <span className={style.crateTitleBadge}>{filteredAlbums.length} Records</span>
         </div>
