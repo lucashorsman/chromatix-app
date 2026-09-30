@@ -104,24 +104,6 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
   ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
   ctx.fillText(isPlaying ? '● NOW PLAYING' : 'TURNTABLE READY', 48, 52);
 
-  // Download Pill Button in Card Header
-  const dlHovered = hoveredTrackIdx === -2;
-  ctx.fillStyle = dlHovered ? 'rgba(0, 182, 134, 0.28)' : 'rgba(0, 182, 134, 0.12)';
-  ctx.beginPath();
-  drawRoundRect(ctx, w - 198, 26, 150, 36, 18);
-  ctx.fill();
-  ctx.strokeStyle = dlHovered ? '#008763' : '#00b686';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  drawRoundRect(ctx, w - 198, 26, 150, 36, 18);
-  ctx.stroke();
-
-  ctx.fillStyle = '#008763';
-  ctx.font = 'bold 15px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('⬇ DOWNLOAD', w - 123, 49);
-  ctx.textAlign = 'left';
-
   // Album Title
   ctx.fillStyle = '#0b2921';
   ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
@@ -293,39 +275,6 @@ function renderTrackCardCanvas(canvas, album, tracks, activeTrackId, isPlaying, 
   }
 
   ctx.restore();
-}
-
-function renderCratePlaqueCanvas(canvas, album) {
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
-
-  // Frosted acrylic plaque with soft emerald backlight
-  const grad = ctx.createLinearGradient(0, 0, w, h);
-  grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-  grad.addColorStop(1, 'rgba(230, 248, 242, 0.9)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h);
-
-  ctx.strokeStyle = 'rgba(0, 182, 134, 0.5)';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(2, 2, w - 4, h - 4);
-
-  ctx.fillStyle = '#008763';
-  ctx.font = 'bold 16px system-ui, sans-serif';
-  ctx.fillText('CRATE SELECTION • PRESS ENTER TO SPIN', 24, 32);
-
-  ctx.fillStyle = '#0b2921';
-  ctx.font = 'bold 26px system-ui, sans-serif';
-  const title = album?.title || 'Select Record';
-  const truncTitle = title.length > 30 ? title.slice(0, 30) + '…' : title;
-  ctx.fillText(truncTitle, 24, 70);
-
-  ctx.fillStyle = '#008763';
-  ctx.font = '600 20px system-ui, sans-serif';
-  const artist = album?.artist || 'Unknown Artist';
-  const truncArtist = artist.length > 34 ? artist.slice(0, 34) + '…' : artist;
-  ctx.fillText(truncArtist, 24, 102);
 }
 
 // ======================================================================
@@ -866,7 +815,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     scene.add(easelGroup);
 
     // ==================================================================
-    // 3. LEFT WING: ACRYLIC RECORD CRATE (BROWSING BIN) + FRONT PLAQUE
+    // 3. LEFT WING: ACRYLIC RECORD CRATE (BROWSING BIN)
     // ==================================================================
     const crateGroup = new THREE.Group();
     crateGroup.position.set(-15.8, 0, 1.5);
@@ -900,20 +849,6 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     crateFront.castShadow = true;
     crateFront.receiveShadow = true;
     crateGroup.add(crateFront);
-
-    // Dynamic Procedural Canvas Plaque on Crate Front
-    const cratePlaqueCanvas = document.createElement('canvas');
-    cratePlaqueCanvas.width = 512;
-    cratePlaqueCanvas.height = 128;
-    renderCratePlaqueCanvas(cratePlaqueCanvas, currentAlbum);
-
-    const cratePlaqueTex = new THREE.CanvasTexture(cratePlaqueCanvas);
-    cratePlaqueTex.colorSpace = THREE.SRGBColorSpace;
-    const cratePlaqueMat = new THREE.MeshBasicMaterial({ map: cratePlaqueTex, transparent: true });
-
-    const cratePlaqueMesh = new THREE.Mesh(new THREE.PlaneGeometry(14.8, 3.7), cratePlaqueMat);
-    cratePlaqueMesh.position.set(0, 2.0, 14.42);
-    crateGroup.add(cratePlaqueMesh);
 
     scene.add(crateGroup);
 
@@ -1065,14 +1000,6 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       currentArmRotation += (targetArmRotation - currentArmRotation) * 0.08;
       armPivotGroup.rotation.y = currentArmRotation;
 
-      // Update Crate Plaque Canvas when selected album changes
-      const activeCrateAlb = filtered[state.selectedIndex] || filtered[0];
-      if (activeCrateAlb && activeCrateAlb.albumId !== lastRenderedAlbumId) {
-        lastRenderedAlbumId = activeCrateAlb.albumId;
-        renderCratePlaqueCanvas(cratePlaqueCanvas, activeCrateAlb);
-        cratePlaqueTex.needsUpdate = true;
-      }
-
       // Update Tracklist Card Canvas when playing album, track, scroll, or hover changes
       const playingAlb = state.currentPlayingAlbum;
       const trks = state.playingAlbumTracks || [];
@@ -1187,24 +1114,34 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         // Arrangement in the transparent acrylic rack
         const delta = idx - continuousPos;
         let targetZ = 0;
-        let targetRotX = 0;
-        let targetY = 6.2;
+        let targetRotX = -0.18;
+        let targetY = 5.95;
 
         if (delta < -0.2) {
-          const flipOffset = -delta;
-          targetZ = 3.5 + Math.min(9.5, flipOffset * 0.45);
-          targetY = 1.4;
-          targetRotX = 0.88;
+          // Records already flipped past (leaning forward at front of crate, preserving full height)
+          const flipOffset = -delta - 0.2;
+          targetZ = 2.5 + Math.min(9.5, flipOffset * 0.55);
+          targetY = 5.95;
+          targetRotX = 0.22;
         } else if (delta > 0.2) {
-          targetZ = -1.2 - delta * 0.45;
-          targetY = 5.9;
+          // Records waiting in back of crate (leaning back at rear of crate, preserving full height)
+          const waitOffset = delta - 0.2;
+          targetZ = -1.2 - waitOffset * 0.55;
+          targetY = 5.95;
           targetRotX = -0.18;
         } else {
-          const flipFactor = (delta + 0.2) / 0.4;
-          targetRotX = THREE.MathUtils.lerp(0.88, -0.18, flipFactor);
-          targetZ = -delta * 1.8;
-          const lift = Math.max(0, 1.0 - Math.abs(delta) * 4.0);
-          targetY = 6.2 + lift * 1.2;
+          // Active record inspected in the center of the crate
+          const lift = Math.max(0, 1.0 - Math.abs(delta) * 5.0);
+          targetY = 5.95 + lift * 1.6;
+          targetZ = -delta * 2.2;
+          // When active/raised, face the camera line of sight directly (-0.18 rad)
+          // Smoothly tilt forward to +0.22 only as it settles past center into the front stack
+          if (delta < 0) {
+            const tiltProgress = Math.pow(-delta / 0.2, 1.6);
+            targetRotX = THREE.MathUtils.lerp(-0.18, 0.22, tiltProgress);
+          } else {
+            targetRotX = -0.18;
+          }
         }
 
         item.mesh.position.set(0, targetY, targetZ);
@@ -1243,9 +1180,9 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         return;
       }
 
-      // 2. Check if clicking Turntable controls, Hero Easel, or Crate Plaque
+      // 2. Check if clicking Turntable controls or Hero Easel
       const interactiveHits = raycaster.intersectObjects(
-        [platter, vinylRecord, leverBase, jewelKnob, heroSleeve, cratePlaqueMesh],
+        [platter, vinylRecord, leverBase, jewelKnob, heroSleeve],
         true
       );
       if (interactiveHits.length > 0) {
@@ -1297,15 +1234,6 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         const uv = cardHits[0].uv;
         const canvasX = uv.x * 1024;
         const canvasY = (1 - uv.y) * 1100;
-
-        // Check hover on Download pill on card
-        if (canvasY >= 24 && canvasY <= 66 && canvasX >= 820 && canvasX <= 982) {
-          if (hoveredTrackIndexRef.current !== -2) {
-            hoveredTrackIndexRef.current = -2;
-          }
-          canvas.style.cursor = 'pointer';
-          return;
-        }
 
         const viewportTop = 236;
         const viewportBottom = 1110;
@@ -1435,14 +1363,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         return;
       }
 
-      // 3. Check if clicking Crate Plaque
-      const plaqueHits = raycaster.intersectObject(cratePlaqueMesh, false);
-      if (plaqueHits.length > 0) {
-        handlePlayAlbum();
-        return;
-      }
-
-      // 4. Check if clicking Unified Tracklist Card
+      // 3. Check if clicking Unified Tracklist Card
       const cardHits = raycaster.intersectObject(trackCardMesh, false);
       if (cardHits.length > 0) {
         const hit = cardHits[0];
@@ -1451,12 +1372,6 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           const uvY = hit.uv.y;
           const canvasX = uvX * 1024;
           const canvasY = (1 - uvY) * 1100;
-
-          // Check if clicking Download pill on card
-          if (canvasY >= 24 && canvasY <= 66 && canvasX >= 820 && canvasX <= 982) {
-            handleOpenDownload();
-            return;
-          }
 
           const viewportTop = 236;
           const viewportBottom = 1110;
@@ -1526,7 +1441,6 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       renderer.dispose();
       textureCache.forEach((tex) => tex.dispose());
       bgTex.dispose();
-      cratePlaqueTex.dispose();
       trackCardTex.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1621,14 +1535,6 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
           </div>
 
           <div className={style.mediaControls}>
-            <button
-              type="button"
-              className={clsx(style.mediaBtn, { [style.mediaBtnActive]: isDownloading })}
-              onClick={handleOpenDownload}
-              title={isDownloading ? 'View Active Download' : 'Download Album (D)'}
-            >
-              <Icon icon="DownloadIcon" size={14} stroke />
-            </button>
             <button className={style.mediaBtn} onClick={handlePrevTrack} title="Previous Track">
               <Icon icon="TrackSkipPrevIcon" size={14} stroke />
             </button>
