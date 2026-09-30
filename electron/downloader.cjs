@@ -22,6 +22,20 @@ function findYtDlp() {
 
 // Find ffmpeg directory
 function findFfmpegDir() {
+  const knownDirs = [
+    'C:\\Users\\lucas\\.spotdl',
+    'C:\\Users\\lucas\\anaconda3\\envs\\opencv-env\\Library\\bin',
+    'C:\\Users\\lucas\\anaconda3\\Library\\bin',
+    'C:\\Users\\lucas\\anaconda3\\pkgs\\ffmpeg-8.0.0-gpl_h70aa942_902\\Library\\bin',
+    'C:\\Users\\lucas\\Documents\\GitHub\\Spotify-to-MP3-Downloader',
+  ];
+
+  for (const d of knownDirs) {
+    if (fs.existsSync(path.join(d, 'ffmpeg.exe'))) {
+      return d;
+    }
+  }
+
   const wingetPkgBase = 'C:\\Users\\lucas\\AppData\\Local\\Microsoft\\WinGet\\Packages';
   if (fs.existsSync(wingetPkgBase)) {
     try {
@@ -94,14 +108,24 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
     '--no-warnings',
     '--windows-filenames',
     '-x',
-    '--audio-format', format || 'mp3',
-    '--audio-quality', '0',
+    '--audio-format',
+    format || 'mp3',
+    '--audio-quality',
+    '0',
     '--embed-metadata',
     '--embed-thumbnail',
+    '--convert-thumbnails',
+    'jpg',
+    // Crop 16:9 thumbnails from YouTube into a clean 1:1 square
+    '--ppa',
+    'ThumbnailsConvertor+ffmpeg_o:-vf crop=min(iw\\,ih):min(iw\\,ih)',
     // ID3 Tagging mappings
-    '--parse-metadata', 'playlist_index:%(track_number)s',
-    '--parse-metadata', '%(release_date>%Y,upload_date>%Y,date)s:%(meta_date)s',
-    '-o', outputTemplate,
+    '--parse-metadata',
+    'playlist_index:%(track_number)s',
+    '--parse-metadata',
+    '%(release_date>%Y,upload_date>%Y,date)s:%(meta_date)s',
+    '-o',
+    outputTemplate,
     '--progress-template',
     'CHX_PROG:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|%(info.title)s|%(info.playlist_index)s|%(info.n_entries)s|%(info.artist,info.creator,info.uploader)s|%(info.album,info.title)s|%(info.release_date>%Y,info.upload_date>%Y)s',
     url,
@@ -203,9 +227,10 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
 
       // If exact targetFolder not found, check recently modified directories in baseDir
       if (!targetFolder || !fs.existsSync(targetFolder)) {
-        const dirs = fs.readdirSync(baseDir, { withFileTypes: true })
-          .filter(d => d.isDirectory())
-          .map(d => ({
+        const dirs = fs
+          .readdirSync(baseDir, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => ({
             name: d.name,
             full: path.join(baseDir, d.name),
             mtime: fs.statSync(path.join(baseDir, d.name)).mtimeMs,
@@ -219,6 +244,43 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
 
       let taggedCount = 0;
       if (targetFolder && fs.existsSync(targetFolder)) {
+        const coverPath = path.join(targetFolder, 'cover.jpg');
+        const ffmpegBin = ffmpegDir ? path.join(ffmpegDir, 'ffmpeg.exe') : 'ffmpeg.exe';
+        let squareCoverPath = null;
+
+        // Check if an image was saved in targetFolder or extract APIC to create square cover.jpg
+        const imageFiles = fs
+          .readdirSync(targetFolder)
+          .filter((f) => /\.(jpe?g|png|webp)$/i.test(f) && f !== 'cover.jpg');
+        if (imageFiles.length > 0 && fs.existsSync(ffmpegBin)) {
+          try {
+            const srcImg = path.join(targetFolder, imageFiles[0]);
+            const tempCover = path.join(targetFolder, '_square_cover.jpg');
+            require('child_process').execSync(
+              `"${ffmpegBin}" -y -i "${srcImg}" -vf "crop=min(iw\\,ih):min(iw\\,ih)" "${tempCover}"`,
+              { stdio: 'ignore' }
+            );
+            if (fs.existsSync(tempCover)) {
+              fs.copyFileSync(tempCover, coverPath);
+              fs.unlinkSync(tempCover);
+              squareCoverPath = coverPath;
+            }
+          } catch (_e) {}
+        } else if (fs.existsSync(coverPath) && fs.existsSync(ffmpegBin)) {
+          try {
+            const tempCover = path.join(targetFolder, '_square_cover.jpg');
+            require('child_process').execSync(
+              `"${ffmpegBin}" -y -i "${coverPath}" -vf "crop=min(iw\\,ih):min(iw\\,ih)" "${tempCover}"`,
+              { stdio: 'ignore' }
+            );
+            if (fs.existsSync(tempCover)) {
+              fs.copyFileSync(tempCover, coverPath);
+              fs.unlinkSync(tempCover);
+              squareCoverPath = coverPath;
+            }
+          } catch (_e) {}
+        }
+
         const files = fs.readdirSync(targetFolder);
         for (const file of files) {
           if (file.toLowerCase().endsWith('.mp3')) {
@@ -251,6 +313,11 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
             if (!updatedTags.year && detectedDate) {
               updatedTags.year = detectedDate.slice(0, 4);
               updatedTags.date = detectedDate;
+            }
+
+            // 5. Square Cover Art
+            if (squareCoverPath && fs.existsSync(squareCoverPath)) {
+              updatedTags.image = squareCoverPath;
             }
 
             // Write verified tags
