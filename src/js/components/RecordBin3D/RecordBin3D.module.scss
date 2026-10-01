@@ -20,7 +20,7 @@
   height: 100vh;
   z-index: 200;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 20%, #ebf8f4 0%, #cae8df 50%, #9fcbbd 100%);
+  background: radial-gradient(circle at 50% 18%, #c5eaff 0%, #6ecbf8 45%, #1d8fd4 85%, #0e568f 100%);
   user-select: none;
   font-family: inherit;
 }
@@ -72,27 +72,27 @@
   align-items: center !important;
   justify-content: center !important;
   gap: 8px !important;
-  background: rgba(255, 255, 255, 0.72) !important;
+  background: rgba(255, 255, 255, 0.78) !important;
   backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
   border-radius: 20px !important;
-  padding: 8px 18px !important;
-  color: #123d32 !important;
+  padding: 9px 22px !important;
+  color: #02283e !important;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   box-shadow:
-    0 8px 24px rgba(0, 36, 26, 0.12),
-    inset 0 1px 2px rgba(255, 255, 255, 0.9);
+    0 8px 24px rgba(0, 35, 60, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.92) !important;
-    border-color: #00b686 !important;
-    color: #008763 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-color: #009fe3 !important;
+    color: #007bbd !important;
     transform: translateY(-1px);
     box-shadow:
-      0 10px 28px rgba(0, 182, 134, 0.25),
+      0 10px 28px rgba(0, 159, 227, 0.28),
       inset 0 1px 2px #fff;
   }
 }
@@ -102,34 +102,34 @@
   align-items: center !important;
   justify-content: center !important;
   gap: 8px !important;
-  background: rgba(255, 255, 255, 0.72) !important;
+  background: rgba(255, 255, 255, 0.78) !important;
   backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
   border-radius: 20px !important;
-  padding: 8px 16px !important;
-  color: #123d32 !important;
+  padding: 9px 20px !important;
+  color: #02283e !important;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   box-shadow:
-    0 8px 24px rgba(0, 36, 26, 0.12),
-    inset 0 1px 2px rgba(255, 255, 255, 0.9);
+    0 8px 24px rgba(0, 35, 60, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.92) !important;
-    border-color: #00b686 !important;
-    color: #008763 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-color: #009fe3 !important;
+    color: #007bbd !important;
     transform: translateY(-1px);
     box-shadow:
-      0 10px 28px rgba(0, 182, 134, 0.25),
+      0 10px 28px rgba(0, 159, 227, 0.28),
       inset 0 1px 2px #fff;
   }
 
   &.activeDownloading {
-    background: rgba(0, 182, 134, 0.2) !important;
-    border-color: #00b686 !important;
-    color: #008763 !important;
+    background: rgba(0, 159, 227, 0.2) !important;
+    border-color: #009fe3 !important;
+    color: #007bbd !important;
   }
 }
 
@@ -138,18 +138,18 @@
   align-items: center !important;
   justify-content: center !important;
   gap: 7px !important;
-  background: rgba(255, 255, 255, 0.72) !important;
+  background: rgba(255, 255, 255, 0.78) !important;
   backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
   border-radius: 20px !important;
-  padding: 8px 15px !important;
-  color: #123d32 !important;
+  padding: 9px 20px !important;
+  color: #02283e !important;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   box-shadow:
-    0 8px 24px rgba(0, 36, 26, 0.12),
-    inset 0 1px 2px rgba(255, 255, 255, 0.9);
+    0 8px 24px rgba(0, 35, 60, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   svg {
@@ -157,28 +157,32 @@
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.92) !important;
-    border-color: #00b686 !important;
-    color: #008763 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-color: #009fe3 !important;
+    color: #007bbd !important;
     transform: translateY(-1px);
     box-shadow:
-      0 10px 28px rgba(0, 182, 134, 0.25),
+      0 10px 28px rgba(0, 159, 227, 0.28),
       inset 0 1px 2px #fff;
   }
 }
 
 .crateTitleBadge {
-  color: #1a4a3e;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #02304d;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.68);
   backdrop-filter: blur(16px);
-  padding: 6px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 14px rgba(0, 36, 26, 0.06);
+  padding: 9px 22px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 14px rgba(0, 35, 60, 0.08);
 }
 
 .searchWrap {
@@ -186,53 +190,53 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.76);
   backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: 22px;
   padding: 8px 18px;
   width: 290px;
   box-shadow:
-    0 8px 26px rgba(0, 36, 26, 0.1),
+    0 8px 26px rgba(0, 35, 60, 0.1),
     inset 0 1px 2px rgba(255, 255, 255, 0.95);
-  color: #123d32;
+  color: #02283e;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:focus-within {
-    border-color: #00b686;
+    border-color: #009fe3;
     width: 340px;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.94);
     box-shadow:
-      0 10px 30px rgba(0, 182, 134, 0.2),
+      0 10px 30px rgba(0, 159, 227, 0.22),
       inset 0 1px 2px #fff;
-    color: #008763;
+    color: #007bbd;
   }
 
   input {
     background: transparent;
     border: none;
     outline: none;
-    color: #0d2b23;
+    color: #021a2d;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     width: 100%;
 
     &::placeholder {
-      color: rgba(26, 74, 62, 0.5);
+      color: rgba(2, 40, 62, 0.5);
     }
   }
 
   .clearBtn {
     background: transparent !important;
     border: none !important;
-    color: rgba(26, 74, 62, 0.5) !important;
+    color: rgba(2, 40, 62, 0.5) !important;
     cursor: pointer !important;
     font-size: 16px !important;
     padding: 0 4px !important;
     line-height: 1 !important;
 
     &:hover {
-      color: #0d2b23 !important;
+      color: #021a2d !important;
     }
   }
 }
@@ -260,13 +264,13 @@
 .playerDock {
   pointer-events: auto;
   width: 380px;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(28px) saturate(200%);
   border: 1px solid rgba(255, 255, 255, 0.95);
   border-radius: 18px;
   padding: 10px 16px;
   box-shadow:
-    0 16px 40px rgba(0, 40, 30, 0.14),
+    0 16px 40px rgba(0, 35, 60, 0.15),
     inset 0 1px 2px #fff;
   display: flex;
   align-items: center;
@@ -275,9 +279,9 @@
   transition: all 0.2s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.92);
     box-shadow:
-      0 20px 48px rgba(0, 40, 30, 0.18),
+      0 20px 48px rgba(0, 35, 60, 0.2),
       inset 0 1px 2px #fff;
   }
 }
@@ -297,7 +301,7 @@
   background: conic-gradient(from 0deg, #111, #333, #111, #222, #111);
   border: 2px solid rgba(255, 255, 255, 0.6);
   position: relative;
-  box-shadow: 0 4px 12px rgba(0, 36, 26, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 35, 60, 0.3);
   flex-shrink: 0;
 
   &.active {
@@ -311,7 +315,7 @@
     left: 50%;
     width: 12px;
     height: 12px;
-    background: #00b686;
+    background: #009fe3;
     border-radius: 50%;
     transform: translate(-50%, -50%);
     border: 1.5px solid #fff;
@@ -336,14 +340,14 @@
     font-size: 9px;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: #008763;
+    color: #007bbd;
     font-weight: 800;
   }
 
   .title {
     font-size: 12px;
     font-weight: 700;
-    color: #0b2921;
+    color: #021a2d;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -352,7 +356,7 @@
   .artist {
     font-size: 11px;
     font-weight: 600;
-    color: #496d63;
+    color: #205674;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -370,41 +374,41 @@
   width: 32px !important;
   height: 32px !important;
   border-radius: 50% !important;
-  background: rgba(255, 255, 255, 0.65) !important;
-  color: #123d32 !important;
-  border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  box-shadow: 0 2px 8px rgba(0, 36, 26, 0.08);
+  background: rgba(255, 255, 255, 0.72) !important;
+  color: #02283e !important;
+  border: 1px solid rgba(255, 255, 255, 0.88) !important;
+  box-shadow: 0 2px 8px rgba(0, 35, 60, 0.08);
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   transition: all 0.15s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.95) !important;
-    color: #008763 !important;
-    border-color: #00b686 !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    color: #007bbd !important;
+    border-color: #009fe3 !important;
     transform: scale(1.08);
   }
 
   &.mediaBtnActive {
-    background: rgba(0, 182, 134, 0.25) !important;
-    color: #008763 !important;
-    border-color: #00b686 !important;
+    background: rgba(0, 159, 227, 0.2) !important;
+    color: #007bbd !important;
+    border-color: #009fe3 !important;
   }
 }
 
 .mediaPlayBtn {
   width: 38px !important;
   height: 38px !important;
-  background: linear-gradient(180deg, #32e8be 0%, #00b686 100%) !important;
+  background: linear-gradient(180deg, #38c8ff 0%, #008be8 100%) !important;
   color: #ffffff !important;
   border: none !important;
   box-shadow:
-    0 4px 14px rgba(0, 182, 134, 0.4),
+    0 4px 14px rgba(0, 139, 232, 0.42),
     inset 0 1px 1px #fff !important;
 
   &:hover {
-    background: linear-gradient(180deg, #4bf2ca 0%, #00c995 100%) !important;
+    background: linear-gradient(180deg, #5cd4ff 0%, #009cf0 100%) !important;
     transform: scale(1.08);
   }
 }
@@ -431,13 +435,13 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(24px) saturate(200%);
   border: 1px solid rgba(255, 255, 255, 0.95);
   border-radius: 24px;
   padding: 8px 18px;
   box-shadow:
-    0 12px 32px rgba(0, 36, 26, 0.12),
+    0 12px 32px rgba(0, 35, 60, 0.13),
     inset 0 1px 2px #fff;
 }
 
@@ -446,15 +450,15 @@
   height: 28px !important;
   border-radius: 50% !important;
   background: transparent !important;
-  color: #008763 !important;
+  color: #007bbd !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   transition: all 0.15s ease;
 
   &:hover {
-    background: rgba(0, 182, 134, 0.15) !important;
-    color: #006046 !important;
+    background: rgba(0, 159, 227, 0.15) !important;
+    color: #005d91 !important;
     transform: scale(1.1);
   }
 }
@@ -471,7 +475,7 @@
   width: 180px;
   height: 5px;
   border-radius: 3px;
-  background: rgba(0, 50, 35, 0.12);
+  background: rgba(0, 45, 75, 0.14);
   outline: none;
   cursor: pointer;
 
@@ -481,10 +485,10 @@
     width: 15px;
     height: 15px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #36e8c0 0%, #00b686 100%);
+    background: linear-gradient(135deg, #38c8ff 0%, #008be8 100%);
     cursor: pointer;
     box-shadow:
-      0 2px 8px rgba(0, 182, 134, 0.5),
+      0 2px 8px rgba(0, 139, 232, 0.5),
       0 0 0 1.5px #fff;
     transition: transform 0.12s ease;
 
@@ -495,7 +499,7 @@
 }
 
 .counter {
-  color: #123d32;
+  color: #02283e;
   font-size: 11px;
   font-weight: 700;
   min-width: 60px;
@@ -506,19 +510,19 @@
   pointer-events: auto;
   display: flex;
   gap: 3px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: 14px;
   padding: 4px 10px;
   box-shadow:
-    0 8px 24px rgba(0, 36, 26, 0.1),
+    0 8px 24px rgba(0, 35, 60, 0.1),
     inset 0 1px 2px #fff;
 }
 
 .azBtn {
   background: transparent !important;
-  color: #385d53 !important;
+  color: #205674 !important;
   font-size: 11px;
   font-weight: 700;
   padding: 3px 6px !important;
@@ -526,14 +530,14 @@
   transition: all 0.12s ease;
 
   &:hover {
-    color: #008763 !important;
-    background: rgba(0, 182, 134, 0.15) !important;
+    color: #007bbd !important;
+    background: rgba(0, 159, 227, 0.14) !important;
   }
 
   &.active {
     color: #ffffff !important;
-    background: #00b686 !important;
-    box-shadow: 0 2px 6px rgba(0, 182, 134, 0.4);
+    background: #008be8 !important;
+    box-shadow: 0 2px 6px rgba(0, 139, 232, 0.45);
   }
 }
 
@@ -542,190 +546,190 @@
 // ----------------------------------------------------------------------
 
 .container.darkMode {
-  background: radial-gradient(circle at 50% 20%, #0d1e1a 0%, #06120f 50%, #020706 100%);
+  background: radial-gradient(circle at 50% 18%, #092135 0%, #04121e 50%, #01060b 100%);
 
   .exitButton,
   .downloadButton,
   .themeToggleBtn {
-    background: rgba(14, 28, 24, 0.75) !important;
-    border-color: rgba(0, 230, 168, 0.28) !important;
-    color: #e4f7f2 !important;
+    background: rgba(6, 24, 38, 0.8) !important;
+    border-color: rgba(0, 240, 255, 0.3) !important;
+    color: #e8f7ff !important;
     box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.45),
-      inset 0 1px 1px rgba(0, 230, 168, 0.15);
+      0 8px 24px rgba(0, 0, 0, 0.5),
+      inset 0 1px 1px rgba(0, 240, 255, 0.15);
 
     &:hover {
-      background: rgba(20, 44, 38, 0.95) !important;
-      border-color: #00ffa8 !important;
-      color: #00ffa8 !important;
+      background: rgba(10, 36, 56, 0.95) !important;
+      border-color: #00f0ff !important;
+      color: #00f0ff !important;
       box-shadow:
-        0 10px 28px rgba(0, 255, 168, 0.28),
-        inset 0 1px 1px rgba(0, 255, 168, 0.4);
+        0 10px 28px rgba(0, 240, 255, 0.3),
+        inset 0 1px 1px rgba(0, 240, 255, 0.4);
     }
 
     &.activeDownloading {
-      background: rgba(0, 230, 168, 0.25) !important;
-      border-color: #00ffa8 !important;
-      color: #00ffa8 !important;
+      background: rgba(0, 240, 255, 0.25) !important;
+      border-color: #00f0ff !important;
+      color: #00f0ff !important;
     }
   }
 
   .crateTitleBadge {
-    background: rgba(12, 26, 22, 0.65);
-    border-color: rgba(0, 230, 168, 0.25);
-    color: #00ffa8;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    background: rgba(6, 22, 35, 0.72);
+    border-color: rgba(0, 240, 255, 0.28);
+    color: #00f0ff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   }
 
   .searchWrap {
-    background: rgba(14, 28, 24, 0.75);
-    border-color: rgba(0, 230, 168, 0.25);
-    color: #00ffa8;
+    background: rgba(6, 24, 38, 0.8);
+    border-color: rgba(0, 240, 255, 0.28);
+    color: #00f0ff;
     box-shadow:
       0 8px 26px rgba(0, 0, 0, 0.45),
-      inset 0 1px 1px rgba(0, 230, 168, 0.12);
+      inset 0 1px 1px rgba(0, 240, 255, 0.12);
 
     &:focus-within {
-      border-color: #00ffa8;
-      background: rgba(18, 38, 32, 0.92);
+      border-color: #00f0ff;
+      background: rgba(9, 32, 50, 0.95);
       box-shadow:
-        0 10px 30px rgba(0, 255, 168, 0.25),
-        inset 0 1px 1px #00ffa8;
-      color: #00ffa8;
+        0 10px 30px rgba(0, 240, 255, 0.28),
+        inset 0 1px 1px #00f0ff;
+      color: #00f0ff;
     }
 
     input {
-      color: #f2fcf9;
+      color: #f0faff;
 
       &::placeholder {
-        color: rgba(130, 185, 170, 0.55);
+        color: rgba(120, 195, 230, 0.55);
       }
     }
 
     .clearBtn {
-      color: rgba(130, 185, 170, 0.55) !important;
+      color: rgba(120, 195, 230, 0.55) !important;
 
       &:hover {
-        color: #f2fcf9 !important;
+        color: #f0faff !important;
       }
     }
   }
 
   .playerDock {
-    background: rgba(12, 26, 22, 0.85);
-    border-color: rgba(0, 230, 168, 0.28);
+    background: rgba(6, 22, 35, 0.88);
+    border-color: rgba(0, 240, 255, 0.3);
     box-shadow:
-      0 16px 40px rgba(0, 0, 0, 0.55),
-      inset 0 1px 1px rgba(0, 230, 168, 0.15);
+      0 16px 40px rgba(0, 0, 0, 0.6),
+      inset 0 1px 1px rgba(0, 240, 255, 0.15);
 
     &:hover {
-      background: rgba(16, 36, 30, 0.95);
+      background: rgba(9, 30, 48, 0.95);
       box-shadow:
-        0 20px 48px rgba(0, 0, 0, 0.65),
-        inset 0 1px 1px rgba(0, 230, 168, 0.25);
+        0 20px 48px rgba(0, 0, 0, 0.7),
+        inset 0 1px 1px rgba(0, 240, 255, 0.25);
     }
 
     .spinningDisc {
-      border-color: rgba(0, 230, 168, 0.35);
+      border-color: rgba(0, 240, 255, 0.4);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 
       &::after {
-        background: #00ffa8;
-        border-color: #061612;
+        background: #00f0ff;
+        border-color: #020b12;
       }
     }
 
     .spinningInfo {
       .label {
-        color: #00ffa8;
+        color: #00f0ff;
       }
 
       .title {
-        color: #f4fcfa;
+        color: #f0faff;
       }
 
       .artist {
-        color: #8ec2b5;
+        color: #7cc3e8;
       }
     }
   }
 
   .mediaBtn {
-    background: rgba(20, 40, 34, 0.75) !important;
-    color: #e4f7f2 !important;
-    border-color: rgba(0, 230, 168, 0.25) !important;
+    background: rgba(10, 32, 50, 0.8) !important;
+    color: #e8f7ff !important;
+    border-color: rgba(0, 240, 255, 0.25) !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 
     &:hover {
-      background: rgba(28, 56, 48, 0.95) !important;
-      color: #00ffa8 !important;
-      border-color: #00ffa8 !important;
+      background: rgba(14, 44, 70, 0.95) !important;
+      color: #00f0ff !important;
+      border-color: #00f0ff !important;
     }
   }
 
   .mediaPlayBtn {
-    background: linear-gradient(180deg, #00ffa8 0%, #00b686 100%) !important;
-    color: #061612 !important;
+    background: linear-gradient(180deg, #00f0ff 0%, #0099e6 100%) !important;
+    color: #020b12 !important;
     box-shadow:
-      0 4px 16px rgba(0, 255, 168, 0.45),
+      0 4px 16px rgba(0, 240, 255, 0.45),
       inset 0 1px 1px #fff !important;
 
     &:hover {
-      background: linear-gradient(180deg, #38ffbd 0%, #00c995 100%) !important;
+      background: linear-gradient(180deg, #42f3ff 0%, #17afff 100%) !important;
     }
   }
 
   .scrubberCard {
-    background: rgba(12, 26, 22, 0.82);
-    border-color: rgba(0, 230, 168, 0.25);
+    background: rgba(6, 22, 35, 0.85);
+    border-color: rgba(0, 240, 255, 0.26);
     box-shadow:
-      0 12px 32px rgba(0, 0, 0, 0.5),
-      inset 0 1px 1px rgba(0, 230, 168, 0.12);
+      0 12px 32px rgba(0, 0, 0, 0.55),
+      inset 0 1px 1px rgba(0, 240, 255, 0.12);
 
     .stepBtn {
-      color: #00ffa8 !important;
+      color: #00f0ff !important;
 
       &:hover {
-        background: rgba(0, 255, 168, 0.18) !important;
-        color: #5effce !important;
+        background: rgba(0, 240, 255, 0.18) !important;
+        color: #57f3ff !important;
       }
     }
 
     .slider {
-      background: rgba(0, 255, 168, 0.16);
+      background: rgba(0, 240, 255, 0.16);
 
       &::-webkit-slider-thumb {
-        background: linear-gradient(135deg, #00ffa8 0%, #00b686 100%);
+        background: linear-gradient(135deg, #00f0ff 0%, #0099e6 100%);
         box-shadow:
-          0 2px 8px rgba(0, 255, 168, 0.6),
-          0 0 0 1.5px #061612;
+          0 2px 8px rgba(0, 240, 255, 0.65),
+          0 0 0 1.5px #020b12;
       }
     }
 
     .counter {
-      color: #a5d8cb;
+      color: #96d4f5;
     }
   }
 
   .azBar {
-    background: rgba(12, 26, 22, 0.8);
-    border-color: rgba(0, 230, 168, 0.22);
+    background: rgba(6, 22, 35, 0.82);
+    border-color: rgba(0, 240, 255, 0.24);
     box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.45),
-      inset 0 1px 1px rgba(0, 230, 168, 0.1);
+      0 8px 24px rgba(0, 0, 0, 0.5),
+      inset 0 1px 1px rgba(0, 240, 255, 0.1);
 
     .azBtn {
-      color: #72a396 !important;
+      color: #6caecf !important;
 
       &:hover {
-        color: #00ffa8 !important;
-        background: rgba(0, 255, 168, 0.15) !important;
+        color: #00f0ff !important;
+        background: rgba(0, 240, 255, 0.16) !important;
       }
 
       &.active {
-        color: #061612 !important;
-        background: #00ffa8 !important;
-        box-shadow: 0 2px 8px rgba(0, 255, 168, 0.5);
+        color: #020b12 !important;
+        background: #00f0ff !important;
+        box-shadow: 0 2px 8px rgba(0, 240, 255, 0.55);
       }
     }
   }
