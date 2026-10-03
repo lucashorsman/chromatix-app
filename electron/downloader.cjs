@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const NodeID3 = require('node-id3');
@@ -74,7 +74,21 @@ function findBinaryInDir(dir, binaryName) {
 let activeProcess = null;
 
 function sanitizeFolderName(name) {
-  return name.replace(/[<>:"/\\|?*]/g, '_').trim();
+  return name
+    .replace(/[<>:"/\\|?*]/g, '_')
+    .replace(/\.+$/, '')
+    .trim();
+}
+
+function cleanStderr(raw) {
+  if (!raw) return '';
+  const lines = raw
+    .split(/[\r\n]+/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('WARNING:'));
+
+  const unique = Array.from(new Set(lines));
+  return unique.slice(0, 4).join('\n').trim();
 }
 
 /**
@@ -114,11 +128,6 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
     '0',
     '--embed-metadata',
     '--embed-thumbnail',
-    '--convert-thumbnails',
-    'jpg',
-    // Crop 16:9 thumbnails from YouTube into a clean 1:1 square
-    '--ppa',
-    'ThumbnailsConvertor+ffmpeg_o:-vf crop=min(iw\\,ih):min(iw\\,ih)',
     // ID3 Tagging mappings
     '--parse-metadata',
     'playlist_index:%(track_number)s',
@@ -189,10 +198,15 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
           artist: detectedArtist,
           album: detectedAlbum,
         });
-      } else if (line.includes('[ExtractAudio] Destination:') || line.includes('[Merger] Merging formats into')) {
+      } else if (
+        line.includes('[ExtractAudio] Destination:') ||
+        line.includes('[Merger] Merging formats into') ||
+        line.includes('[download] Destination:')
+      ) {
         const match = line.match(/(?:Destination:|into\s+)(.+)$/);
         if (match && match[1]) {
-          downloadedFiles.push(match[1].trim().replace(/^"/, '').replace(/"$/, ''));
+          const filePath = match[1].trim().replace(/^"/, '').replace(/"$/, '');
+          downloadedFiles.push(filePath);
         }
       }
     }
@@ -206,8 +220,49 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
   activeProcess.on('close', async (code) => {
     activeProcess = null;
 
-    if (code !== 0) {
-      onError(new Error(stderrBuffer.trim() || `Download process exited with code ${code}`));
+    // 1. Resolve the destination album directory
+    let targetFolder = '';
+
+    for (const f of downloadedFiles) {
+      const dir = path.dirname(f);
+      if (fs.existsSync(dir)) {
+        targetFolder = dir;
+        break;
+      }
+    }
+
+    if (!targetFolder && detectedAlbum && detectedArtist) {
+      const folderName = `${sanitizeFolderName(detectedAlbum)}-${sanitizeFolderName(detectedArtist)}`;
+      const candidate = path.join(baseDir, folderName);
+      if (fs.existsSync(candidate)) {
+        targetFolder = candidate;
+      }
+    }
+
+    if (!targetFolder && fs.existsSync(baseDir)) {
+      const dirs = fs
+        .readdirSync(baseDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => ({
+          name: d.name,
+          full: path.join(baseDir, d.name),
+          mtime: fs.statSync(path.join(baseDir, d.name)).mtimeMs,
+        }))
+        .sort((a, b) => b.mtime - a.mtime);
+
+      if (dirs.length > 0) {
+        targetFolder = dirs[0].full;
+      }
+    }
+
+    let mp3Files = [];
+    if (targetFolder && fs.existsSync(targetFolder)) {
+      mp3Files = fs.readdirSync(targetFolder).filter((f) => f.toLowerCase().endsWith('.mp3'));
+    }
+
+    // 2. Fail only if process had a non-zero exit code AND zero mp3 files were saved
+    if (code !== 0 && mp3Files.length === 0 && downloadedFiles.length === 0) {
+      onError(new Error(cleanStderr(stderrBuffer) || `Download process exited with code ${code}`));
       return;
     }
 
@@ -218,90 +273,90 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
     });
 
     try {
-      // Find the album directory: D:/Music/<Album>-<artist>
-      let targetFolder = '';
-      if (detectedAlbum && detectedArtist) {
-        const folderName = `${sanitizeFolderName(detectedAlbum)}-${sanitizeFolderName(detectedArtist)}`;
-        targetFolder = path.join(baseDir, folderName);
-      }
-
-      // If exact targetFolder not found, check recently modified directories in baseDir
-      if (!targetFolder || !fs.existsSync(targetFolder)) {
-        const dirs = fs
-          .readdirSync(baseDir, { withFileTypes: true })
-          .filter((d) => d.isDirectory())
-          .map((d) => ({
-            name: d.name,
-            full: path.join(baseDir, d.name),
-            mtime: fs.statSync(path.join(baseDir, d.name)).mtimeMs,
-          }))
-          .sort((a, b) => b.mtime - a.mtime);
-
-        if (dirs.length > 0) {
-          targetFolder = dirs[0].full;
-        }
-      }
-
       let taggedCount = 0;
       if (targetFolder && fs.existsSync(targetFolder)) {
         const coverPath = path.join(targetFolder, 'cover.jpg');
         const ffmpegBin = ffmpegDir ? path.join(ffmpegDir, 'ffmpeg.exe') : 'ffmpeg.exe';
         let squareCoverPath = null;
 
-        // Check if an image was saved in targetFolder or extract APIC to create square cover.jpg
+        // 3. Find cover image from folder or extract embedded image from first MP3
+        let srcImg = null;
         const imageFiles = fs
           .readdirSync(targetFolder)
-          .filter((f) => /\.(jpe?g|png|webp)$/i.test(f) && f !== 'cover.jpg');
-        if (imageFiles.length > 0 && fs.existsSync(ffmpegBin)) {
+          .filter((f) => /\.(jpe?g|png|webp)$/i.test(f) && f.toLowerCase() !== 'cover.jpg');
+
+        if (imageFiles.length > 0) {
+          srcImg = path.join(targetFolder, imageFiles[0]);
+        } else if (mp3Files.length > 0) {
           try {
-            const srcImg = path.join(targetFolder, imageFiles[0]);
-            const tempCover = path.join(targetFolder, '_square_cover.jpg');
-            require('child_process').execSync(
-              `"${ffmpegBin}" -y -i "${srcImg}" -vf "crop=min(iw\\,ih):min(iw\\,ih)" "${tempCover}"`,
-              { stdio: 'ignore' }
-            );
-            if (fs.existsSync(tempCover)) {
-              fs.copyFileSync(tempCover, coverPath);
-              fs.unlinkSync(tempCover);
-              squareCoverPath = coverPath;
+            const firstMp3Path = path.join(targetFolder, mp3Files[0]);
+            const existingTags = NodeID3.read(firstMp3Path);
+            if (existingTags?.image?.imageBuffer) {
+              const rawCoverPath = path.join(targetFolder, '_raw_extracted_cover.jpg');
+              fs.writeFileSync(rawCoverPath, existingTags.image.imageBuffer);
+              srcImg = rawCoverPath;
             }
           } catch (_e) {}
-        } else if (fs.existsSync(coverPath) && fs.existsSync(ffmpegBin)) {
-          try {
-            const tempCover = path.join(targetFolder, '_square_cover.jpg');
-            require('child_process').execSync(
-              `"${ffmpegBin}" -y -i "${coverPath}" -vf "crop=min(iw\\,ih):min(iw\\,ih)" "${tempCover}"`,
-              { stdio: 'ignore' }
-            );
-            if (fs.existsSync(tempCover)) {
-              fs.copyFileSync(tempCover, coverPath);
-              fs.unlinkSync(tempCover);
-              squareCoverPath = coverPath;
-            }
-          } catch (_e) {}
+        } else if (fs.existsSync(coverPath)) {
+          srcImg = coverPath;
         }
 
+        // 4. Center-crop to 1:1 square cover.jpg using ffmpeg
+        if (srcImg && fs.existsSync(srcImg)) {
+          const tempCover = path.join(targetFolder, '_square_cover.jpg');
+          let croppedOk = false;
+
+          try {
+            const res = spawnSync(ffmpegBin, ['-y', '-i', srcImg, '-vf', "crop='min(iw,ih)':'min(iw,ih)'", tempCover], {
+              windowsHide: true,
+              stdio: 'ignore',
+              timeout: 15000,
+            });
+            if (res.status === 0 && fs.existsSync(tempCover) && fs.statSync(tempCover).size > 0) {
+              fs.copyFileSync(tempCover, coverPath);
+              croppedOk = true;
+            }
+          } catch (_e) {}
+
+          if (!croppedOk && !fs.existsSync(coverPath)) {
+            try {
+              fs.copyFileSync(srcImg, coverPath);
+            } catch (_e) {}
+          }
+
+          // Clean up temp files
+          try {
+            if (fs.existsSync(tempCover)) fs.unlinkSync(tempCover);
+            const rawExtracted = path.join(targetFolder, '_raw_extracted_cover.jpg');
+            if (fs.existsSync(rawExtracted)) fs.unlinkSync(rawExtracted);
+          } catch (_e) {}
+
+          if (fs.existsSync(coverPath)) {
+            squareCoverPath = coverPath;
+          }
+        }
+
+        // 5. Augment and write clean ID3 tags on all MP3s
         const files = fs.readdirSync(targetFolder);
         for (const file of files) {
           if (file.toLowerCase().endsWith('.mp3')) {
             const filePath = path.join(targetFolder, file);
             taggedCount++;
 
-            // Read existing tags and augment missing ID3 tags
             const existingTags = NodeID3.read(filePath) || {};
             const updatedTags = { ...existingTags };
 
-            // 1. Artist
+            // Artist
             if (!updatedTags.artist && detectedArtist) {
               updatedTags.artist = detectedArtist;
             }
 
-            // 2. Album
+            // Album
             if (!updatedTags.album && detectedAlbum) {
               updatedTags.album = detectedAlbum;
             }
 
-            // 3. Track number: check if filename starts with digits (e.g., "01 - ...")
+            // Track number
             if (!updatedTags.trackNumber) {
               const trackMatch = file.match(/^(\d+)\s*[-_.]/);
               if (trackMatch) {
@@ -309,18 +364,17 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
               }
             }
 
-            // 4. Date / Year
+            // Date / Year
             if (!updatedTags.year && detectedDate) {
               updatedTags.year = detectedDate.slice(0, 4);
               updatedTags.date = detectedDate;
             }
 
-            // 5. Square Cover Art
+            // Square Cover Art
             if (squareCoverPath && fs.existsSync(squareCoverPath)) {
               updatedTags.image = squareCoverPath;
             }
 
-            // Write verified tags
             NodeID3.update(updatedTags, filePath);
           }
         }
@@ -328,19 +382,18 @@ function startDownload({ url, outputBase = 'D:/Music', format = 'mp3', onProgres
 
       onComplete({
         success: true,
-        folder: targetFolder,
+        folder: targetFolder || baseDir,
         artist: detectedArtist,
         album: detectedAlbum,
         date: detectedDate,
-        trackCount: taggedCount,
+        trackCount: taggedCount || mp3Files.length,
       });
     } catch (tagErr) {
       console.error('[Downloader] Tagging error:', tagErr);
-      // Still complete even if secondary tagging pass had a warning
       onComplete({
         success: true,
-        folder: baseDir,
-        trackCount: downloadedFiles.length,
+        folder: targetFolder || baseDir,
+        trackCount: mp3Files.length || downloadedFiles.length,
       });
     }
   });

@@ -36,21 +36,20 @@ const useGetAlbumArray = () => {
     ({ sessionModel }) => sessionModel.optionSortIgnoreLeadingArticles
   );
 
+  const isGridOrCrate = viewAlbums === 'grid' || viewAlbums === 'crate';
+
   // prevent sorting by a hidden field
   const allowedSort = {
     title: true,
-    artist: viewAlbums === 'grid' || (viewAlbums === 'list' && colAlbumsArtist),
-    'artist-asc-releaseDate-asc': viewAlbums === 'grid',
-    'artist-asc-releaseDate-desc': viewAlbums === 'grid',
-    addedAt: platformOpts.enableAddedAt && (viewAlbums === 'grid' || (viewAlbums === 'list' && colAlbumsAddedAt)),
-    lastPlayed:
-      platformOpts.enableLastPlayed && (viewAlbums === 'grid' || (viewAlbums === 'list' && colAlbumsLastPlayed)),
+    artist: isGridOrCrate || (viewAlbums === 'list' && colAlbumsArtist),
+    'artist-asc-releaseDate-asc': isGridOrCrate,
+    'artist-asc-releaseDate-desc': isGridOrCrate,
+    addedAt: platformOpts.enableAddedAt && (isGridOrCrate || (viewAlbums === 'list' && colAlbumsAddedAt)),
+    lastPlayed: platformOpts.enableLastPlayed && (isGridOrCrate || (viewAlbums === 'list' && colAlbumsLastPlayed)),
     genre: viewAlbums === 'list' && colAlbumsGenre,
-    releaseDate: viewAlbums === 'grid' || (viewAlbums === 'list' && colAlbumsReleaseDate),
-    userRating:
-      platformOpts.enableUserRating && (viewAlbums === 'grid' || (viewAlbums === 'list' && colAlbumsUserRating)),
-    isFavourite:
-      platformOpts.enableIsFavourite && (viewAlbums === 'grid' || (viewAlbums === 'list' && colAlbumsIsFavourite)),
+    releaseDate: isGridOrCrate || (viewAlbums === 'list' && colAlbumsReleaseDate),
+    userRating: platformOpts.enableUserRating && (isGridOrCrate || (viewAlbums === 'list' && colAlbumsUserRating)),
+    isFavourite: platformOpts.enableIsFavourite && (isGridOrCrate || (viewAlbums === 'list' && colAlbumsIsFavourite)),
   };
   const actualSortAlbums = allowedSort[sortAlbums] ? sortAlbums : 'title';
   const actualOrderAlbums = allowedSort[sortAlbums] ? orderAlbums : 'asc';

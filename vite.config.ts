@@ -1,7 +1,8 @@
-﻿import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 import { visualizer } from 'rollup-plugin-visualizer';
+import pkg from './package.json';
 
 /**
  * Forces a full page reload when a hook file is saved, instead of hot-swapping it.
@@ -42,21 +43,22 @@ const imageProxyPlugin = {
   },
 };
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   appType: 'spa',
   plugins: [
     react(),
     svgr(),
     fullReloadOnHooksChange,
     imageProxyPlugin,
-    process.env.ANALYZE && visualizer({ open: true, filename: 'build/stats.html', gzipSize: true, brotliSize: true }),
-  ],
+    (Boolean(process.env.ANALYZE) || mode === 'analyze') &&
+      visualizer({ open: true, filename: 'build/stats.html', gzipSize: true, brotliSize: true }),
+  ].filter(Boolean) as any,
   resolve: {
     tsconfigPaths: true,
   },
   define: {
     'import.meta.env.VITE_DATE': JSON.stringify(process.env.VITE_DATE || String(Math.floor(Date.now() / 1000))),
-    'import.meta.env.VITE_VERSION': JSON.stringify(process.env.VITE_VERSION || '0.0.0'),
+    'import.meta.env.VITE_VERSION': JSON.stringify(process.env.VITE_VERSION || pkg.version),
   },
   server: {
     host: true,
@@ -90,4 +92,4 @@ export default defineConfig({
       VITE_ENV: 'local',
     },
   },
-});
+}));

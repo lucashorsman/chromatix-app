@@ -8,10 +8,11 @@ import { useHistory } from 'react-router-dom';
 import * as THREE from 'three';
 import clsx from 'clsx';
 
-import { Icon } from 'js/components';
+import { ActionSort, Icon } from 'js/components';
 import { durationToStringMed, formatReleaseYear, getLocalStorage, setLocalStorage } from 'js/utils';
 import * as bridge from 'js/services/bridge';
 import * as playerX from 'js/services/player';
+import platformFeatures from 'js/_config/platformFeatures';
 
 import style from './RecordBin3D.module.scss';
 
@@ -86,6 +87,7 @@ function renderTrackCardCanvas(
 ) {
   const ctx = canvas.getContext('2d');
   ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (scale !== 1.0) {
     ctx.scale(scale, scale);
@@ -122,8 +124,6 @@ function renderTrackCardCanvas(
   // -------------------------------------------------------------
   // HEADER: ALBUM METADATA & STATUS
   // -------------------------------------------------------------
-  ctx.save();
-
   const fontStack = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
   // Status Badge
@@ -322,18 +322,69 @@ function renderTrackCardCanvas(
   }
 
   ctx.restore();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 // ======================================================================
 // COMPONENT
 // ======================================================================
 
-export const RecordBin3D = ({ albums = [], onExit }) => {
+export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOrder, onExit }) => {
   const history = useHistory();
   const dispatch = useDispatch();
 
   const containerRef = useRef(null);
   const mountRef = useRef(null);
+
+  const currentService = useSelector(({ appModel }) => appModel.currentService);
+
+  const reduxSortAlbums = useSelector(({ sessionModel }) => sessionModel.sortAlbums);
+  const reduxOrderAlbums = useSelector(({ sessionModel }) => sessionModel.orderAlbums);
+
+  const activeSortAlbums = sortValue !== undefined ? sortValue : reduxSortAlbums;
+  const activeOrderAlbums = orderValue !== undefined ? orderValue : reduxOrderAlbums;
+
+  const handleSetSort = useCallback(
+    (newSort, newOrder) => {
+      if (setSort) {
+        setSort(newSort, newOrder);
+      } else {
+        dispatch.sessionModel.setSessionState({
+          sortAlbums: newSort,
+          ...(newOrder !== undefined && { orderAlbums: newOrder }),
+        });
+      }
+    },
+    [setSort, dispatch]
+  );
+
+  const handleSetOrder = useCallback(
+    (newOrder) => {
+      if (setOrder) {
+        setOrder(newOrder);
+      } else {
+        dispatch.sessionModel.setSessionState({
+          orderAlbums: newOrder,
+        });
+      }
+    },
+    [setOrder, dispatch]
+  );
+
+  const sortOptions = useMemo(() => {
+    const platformOpts = platformFeatures[currentService] || {};
+    return [
+      { value: 'title', label: 'Alphabetical' },
+      { value: 'artist', label: 'Artist' },
+      { value: 'artist-asc-releaseDate-asc', label: 'Artist, oldest release first' },
+      { value: 'artist-asc-releaseDate-desc', label: 'Artist, newest release first' },
+      ...(platformOpts?.enableAddedAt ? [{ value: 'addedAt', label: 'Date added' }] : []),
+      ...(platformOpts?.enableLastPlayed ? [{ value: 'lastPlayed', label: 'Date played' }] : []),
+      { value: 'releaseDate', label: 'Date released' },
+      ...(platformOpts?.enableIsFavourite ? [{ value: 'isFavourite', label: 'Favourites' }] : []),
+      ...(platformOpts?.enableUserRating ? [{ value: 'userRating', label: 'Rating' }] : []),
+    ];
+  }, [currentService]);
 
   const playerPlaying = useSelector(({ playerModel }) => playerModel.playerPlaying);
   const playerTrackLoaded = useSelector(({ playerModel }) => playerModel.playerTrackLoaded);
@@ -457,6 +508,22 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
       return prev;
     });
   }, []);
+
+  // Retain the currently selected album when sort order changes
+  const lastSortRef = useRef({ sort: activeSortAlbums, order: activeOrderAlbums });
+  useEffect(() => {
+    if (lastSortRef.current.sort !== activeSortAlbums || lastSortRef.current.order !== activeOrderAlbums) {
+      lastSortRef.current = { sort: activeSortAlbums, order: activeOrderAlbums };
+      if (currentAlbum && filteredAlbums.length > 0) {
+        const newIndex = filteredAlbums.findIndex((a) => a.albumId === currentAlbum.albumId);
+        if (newIndex >= 0) {
+          goToIndex(newIndex);
+        } else {
+          goToIndex(0);
+        }
+      }
+    }
+  }, [activeSortAlbums, activeOrderAlbums, filteredAlbums, currentAlbum, goToIndex]);
 
   const handlePlayAlbum = useCallback(() => {
     const alb = stateRef.current.currentAlbum;
@@ -1023,7 +1090,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     // 3. LEFT WING: ACRYLIC RECORD CRATE (BROWSING BIN)
     // ==================================================================
     const crateGroup = new THREE.Group();
-    crateGroup.position.set(-15.8, 0, 1.5);
+    crateGroup.position.set(-17.6, 0, 1.5);
 
     const crateBottom = new THREE.Mesh(new THREE.BoxGeometry(15.5, 0.5, 28), acrylicMat);
     crateBottom.position.set(0, 0.25, 0);
@@ -1065,17 +1132,13 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     trackCardGroup.rotation.x = -0.15; // Comfortable tilted angle facing camera
     trackCardGroup.rotation.y = -0.16;
 
-    const calculateCardScale = (h) => {
-      const dpr = Math.min(window.devicePixelRatio, 1.35);
-      const projectedPx = h * 0.59 * dpr;
-      return Math.min(1.0, Math.max(0.45, projectedPx / 1100));
-    };
+    const calculateCardScale = () => 1.0;
 
-    let cardScale = calculateCardScale(height);
+    let cardScale = 1.0;
 
     const trackCardCanvas = document.createElement('canvas');
-    trackCardCanvas.width = Math.round(1024 * cardScale);
-    trackCardCanvas.height = Math.round(1100 * cardScale);
+    trackCardCanvas.width = 1024;
+    trackCardCanvas.height = 1100;
     renderTrackCardCanvas(
       trackCardCanvas,
       currentPlayingAlbum,
@@ -1258,6 +1321,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     let lastRenderedPlayingAlbumId = null;
     let lastRenderedTrackId = null;
     let lastRenderedPlayingState = null;
+    let lastRenderedTracksRef = null;
     let lastRenderedTracksCount = 0;
     let lastRenderedScroll = -999;
     let lastRenderedHoverIdx = -1;
@@ -1429,6 +1493,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         playingAlb?.albumId !== lastRenderedPlayingAlbumId ||
         curTrkId !== lastRenderedTrackId ||
         isPlay !== lastRenderedPlayingState ||
+        trks !== lastRenderedTracksRef ||
         trks.length !== lastRenderedTracksCount ||
         Math.abs(roundedScroll - lastRenderedScroll) >= 1 ||
         hovIdx !== lastRenderedHoverIdx ||
@@ -1438,6 +1503,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         lastRenderedPlayingAlbumId = playingAlb?.albumId;
         lastRenderedTrackId = curTrkId;
         lastRenderedPlayingState = isPlay;
+        lastRenderedTracksRef = trks;
         lastRenderedTracksCount = trks.length;
         lastRenderedScroll = roundedScroll;
         lastRenderedHoverIdx = hovIdx;
@@ -1948,6 +2014,7 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         trackCardCanvas.width = Math.round(1024 * cardScale);
         trackCardCanvas.height = Math.round(1100 * cardScale);
         lastRenderedPlayingAlbumId = null;
+        lastRenderedTheme = null;
       }
 
       shadowNeedsUpdate = true;
@@ -1994,13 +2061,21 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryId]);
 
+  const isSortByArtist = activeSortAlbums === 'artist' || activeSortAlbums?.startsWith('artist-');
+
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
   const handleAZClick = (letter) => {
     let target = 0;
     if (letter === '#') {
-      target = filteredAlbums.findIndex((a) => a.title && /^[0-9\W]/.test(a.title));
+      target = filteredAlbums.findIndex((a) => {
+        const val = isSortByArtist ? a.artist : a.title;
+        return val && /^[0-9\W]/.test(val);
+      });
     } else {
-      target = filteredAlbums.findIndex((a) => a.title && a.title.trim().toUpperCase().startsWith(letter));
+      target = filteredAlbums.findIndex((a) => {
+        const val = isSortByArtist ? a.artist : a.title;
+        return val && val.trim().toUpperCase().startsWith(letter);
+      });
     }
     if (target >= 0) {
       goToIndex(target);
@@ -2027,6 +2102,14 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
             <Icon icon="DownloadIcon" size={16} stroke />
             <span>{isDownloading ? downloadProgress?.percent || 'Downloading…' : 'Download'}</span>
           </button>
+          <ActionSort
+            className={style.sortPill}
+            sortValue={activeSortAlbums}
+            orderValue={activeOrderAlbums}
+            options={sortOptions}
+            setSort={handleSetSort}
+            setOrder={handleSetOrder}
+          />
           <button
             type="button"
             className={style.themeToggleBtn}
@@ -2170,17 +2253,21 @@ export const RecordBin3D = ({ albums = [], onExit }) => {
         </div>
 
         <div className={style.azBar}>
-          {alphabet.map((letter) => (
-            <button
-              key={letter}
-              className={clsx(style.azBtn, {
-                [style.active]: currentAlbum?.title?.trim().toUpperCase().startsWith(letter),
-              })}
-              onClick={() => handleAZClick(letter)}
-            >
-              {letter}
-            </button>
-          ))}
+          {alphabet.map((letter) => {
+            const targetVal = isSortByArtist ? currentAlbum?.artist : currentAlbum?.title;
+            const isActive = targetVal?.trim().toUpperCase().startsWith(letter);
+            return (
+              <button
+                key={letter}
+                className={clsx(style.azBtn, {
+                  [style.active]: isActive,
+                })}
+                onClick={() => handleAZClick(letter)}
+              >
+                {letter}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

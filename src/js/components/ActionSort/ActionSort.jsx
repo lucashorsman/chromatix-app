@@ -14,7 +14,7 @@ import style from './ActionSort.module.scss';
 // COMPONENT
 // ======================================================================
 
-export const ActionSort = ({ variant, sortValue, orderValue, options, setSort, setOrder }) => {
+export const ActionSort = ({ className, variant, sortValue, orderValue, options, setSort, setOrder }) => {
   const orderIcon = orderValue === 'asc' ? 'ArrowDownLongIcon' : 'ArrowUpLongIcon';
   const valueLabel = options.find((option) => option.value === sortValue)?.label;
 
@@ -30,7 +30,7 @@ export const ActionSort = ({ variant, sortValue, orderValue, options, setSort, s
   };
 
   return (
-    <div className={clsx(style.wrap, style['wrap' + variant])}>
+    <div className={clsx(style.wrap, style['wrap' + variant], className)}>
       <RadixMenu.Root>
         <RadixMenu.Trigger className={style.trigger} aria-label={valueLabel}>
           <span className={style.icon}>

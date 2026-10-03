@@ -1,4 +1,4 @@
-﻿// ======================================================================
+// ======================================================================
 // IMPORTS
 // ======================================================================
 
@@ -93,7 +93,16 @@ const AlbumArray = () => {
           {titleBlock}
         </ViewList>
       )}
-      {isCrateView && <RecordBin3D albums={sortedAlbums} onExit={() => setViewAlbums('grid')} />}
+      {isCrateView && (
+        <RecordBin3D
+          albums={sortedAlbums}
+          sortValue={sortAlbums}
+          orderValue={orderAlbums}
+          setSort={setSortAlbums}
+          setOrder={setOrderAlbums}
+          onExit={() => setViewAlbums('grid')}
+        />
+      )}
     </>
   );
 };
