@@ -398,10 +398,6 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
   const allAlbumTracks = useSelector(({ appModel }) => appModel.allAlbumTracks);
   const currentTrack = playingTrackList?.[playingTrackKeys[playingTrackIndex]];
 
-  const downloaderState = useSelector(({ downloaderModel }) => downloaderModel || {});
-  const isDownloading = downloaderState.isDownloading;
-  const downloadProgress = downloaderState.progress;
-
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -597,10 +593,6 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     dispatch.playerModel.playerPrevTrack();
   }, [dispatch]);
 
-  const handleOpenDownload = useCallback(() => {
-    dispatch.dialogModel.showModal('DownloadAlbum');
-  }, [dispatch]);
-
   const handleExit = useCallback(() => {
     if (onExit) onExit();
     else dispatch.sessionModel.setSessionState({ viewAlbums: 'grid' });
@@ -638,9 +630,6 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       } else if (e.key === 'Enter') {
         e.preventDefault();
         handlePlayAlbum();
-      } else if (e.key === 'd' || e.key === 'D') {
-        e.preventDefault();
-        handleOpenDownload();
       } else if (e.key === 't' || e.key === 'T') {
         e.preventDefault();
         handleToggleTheme();
@@ -651,7 +640,7 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToIndex, handleTogglePlay, handlePlayAlbum, handleOpenDownload, handleExit, handleToggleTheme]);
+  }, [goToIndex, handleTogglePlay, handlePlayAlbum, handleExit, handleToggleTheme]);
 
   // ======================================================================
   // THREE.JS GLASSHOUSE FOREST CONSERVATORY SCENE
@@ -2092,15 +2081,6 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
           <button className={style.exitButton} onClick={handleExit} title="Exit 3D View (Esc)">
             <Icon icon="GridIcon" size={16} stroke />
             <span>Grid View</span>
-          </button>
-          <button
-            type="button"
-            className={clsx(style.downloadButton, { [style.activeDownloading]: isDownloading })}
-            onClick={handleOpenDownload}
-            title={isDownloading ? 'Download in progress — click to view' : 'Download Album to Library (D)'}
-          >
-            <Icon icon="DownloadIcon" size={16} stroke />
-            <span>{isDownloading ? downloadProgress?.percent || 'Downloading…' : 'Download'}</span>
           </button>
           <ActionSort
             className={style.sortPill}

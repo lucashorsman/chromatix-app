@@ -1,6 +1,5 @@
-﻿const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const downloader = require('./downloader.cjs');
 const { startStaticServer } = require('./server.cjs');
 
 let mainWindow = null;
@@ -102,36 +101,6 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// IPC Handler: Start Music Download
-ipcMain.on('download-music-start', (event, payload) => {
-  const { url, outputBase = 'D:/Music', format = 'mp3' } = payload || {};
-
-  downloader.startDownload({
-    url,
-    outputBase,
-    format,
-    onProgress: (progressData) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('download-music-progress', progressData);
-      }
-    },
-    onComplete: (result) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('download-music-complete', result);
-      }
-    },
-    onError: (err) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('download-music-error', { error: err.message });
-      }
-    },
-  });
-});
-
-// IPC Handler: Cancel Music Download
-ipcMain.on('download-music-cancel', () => {
-  downloader.cancelDownload();
-});
 
 // IPC Handler: Open folder in Windows Explorer
 ipcMain.on('open-folder', (_event, folderPath) => {

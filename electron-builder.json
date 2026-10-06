@@ -9,10 +9,7 @@
   "files": [
     "build/**/*",
     "electron/**/*",
-    "package.json",
-    "node_modules/node-id3/**/*",
-    "node_modules/iconv-lite/**/*",
-    "node_modules/safer-buffer/**/*"
+    "package.json"
   ],
   "win": {
     "target": [
