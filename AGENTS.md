@@ -18,6 +18,8 @@ Chromatix is a desktop music player for Plex and Jellyfin, built as a React web 
 - **clsx** — Conditional class name composition
 - **Vercel Analytics** — Usage and error tracking
 - **dash.js** — DASH manifest playback for Plex transcoded tracks
+- **Three.js** — 3D WebGL scene rendering for the 3D Record Bin (materials, lighting, procedural canvas textures)
+- **Butterchurn** — WebGL2 MilkDrop 2 visualizer engine driven by the Web Audio API
 
 ## Project Structure
 
@@ -46,6 +48,7 @@ src/
     modals/              # Modal content components
     pages/               # Page-level components (one per route)
     services/            # API and playback services
+      audioBridge.ts     # Web Audio API bridge connecting player elements to analyser node
       bridge.js          # Service-agnostic API bridge (Plex + Jellyfin)
       plexTools.js       # Plex API calls
       plexTranspose.js   # Plex API response normalisation
@@ -54,6 +57,7 @@ src/
       player.ts          # Player router — dispatches to native or DASH player
       player.native.ts   # Native audio playback (HTMLAudioElement)
       player.dash.ts     # DASH playback via dash.js (Plex transcoded tracks)
+      visualizer.ts      # Butterchurn visualizer lifecycle, presets, and rendering
     store/               # Rematch global state models
       store.ts           # Store initialisation
       models.app.js      # App state (init, login, errors)
@@ -110,6 +114,8 @@ All API calls go through `bridge.js`, which delegates to either `plexTools.js` o
 
 The audio player has three layers: `player.ts` is the router that selects the active backend; `player.native.ts` handles native `HTMLAudioElement` playback (MP3, FLAC, AAC, Ogg, and Jellyfin transcoded streams); `player.dash.ts` handles DASH playback via dash.js (used for Plex tracks whose codec requires transcoding, e.g. WMA, FLAC on unsupported browsers). Playback management logic (queue, skip, shuffle, repeat) lives in `models.player.js` in the store.
 
+Audio visualisation and reactive analysis are handled by two services: `audioBridge.ts` creates a singleton Web Audio graph (`AudioContext`, `GainNode`, and `AnalyserNode`), automatically tapping audio elements from both native and DASH player instances via `connectAudioElement()` and exposing `getAudioEnergy()` (bass, mid, treble, overall) to drive audio-reactive visuals. `visualizer.ts` manages the Butterchurn (MilkDrop 2) WebGL2 visualizer engine, preset packs, auto-cycling timers, and canvas rendering.
+
 The Plex API is entirely undocumented and reverse engineered. Plex API fields are explicitly excluded where not needed to reduce payload size.
 
 ## Routing
@@ -153,6 +159,84 @@ The `Action*` components are the toolbar controls shown above list/grid views. T
 Modal content components live as flat files directly under `js/modals/` (no per-modal folder), sharing one stylesheet (`modals.module.scss`). Open one via `dispatch.dialogModel.showModal('Name')` or `showModal({ modal: 'Name', data: {...} })`; the modal reads `dialogModel.currentModalData` via `useSelector`. Confirmations use `dispatch.dialogModel.showConfirm({...})` instead (see `models.dialog.js`) rather than a dedicated modal component.
 
 Name-entry modals (playlists, collections) validate inline using `validateEntityName` from `js/utils` — trims whitespace, rejects unsafe characters, and checks for a case-insensitive duplicate against the relevant list already in the store. Follow this pattern for any other user-named entity.
+
+## 3D Record Bin (RecordBin3D)
+
+`RecordBin3D` (`src/js/components/RecordBin3D/RecordBin3D.jsx`) is Chromatix's immersive 3D vinyl browsing experience, activated when selecting the "Crate" view mode (`viewAlbums === 'crate'`) from the Album view (`AlbumArray.jsx`). It is built on **Three.js** and styled with a Frutiger Aero aesthetic featuring daytime ("Sunlit Conservatory") and nighttime ("Midnight Lounge") environments.
+
+### Scene Architecture & Framing
+
+- **Three-Wing Camera Framing**: Uses a `PerspectiveCamera(36, ...)` positioned at `(0.6, 17.0, 43.0)` looking at `(0, 8.0, 1.0)`. A subtle pointer-driven parallax effect shifts camera X/Y smoothly relative to the mouse. The frame captures three distinct functional wings:
+  - **Left Wing (Browsing Crate)**: Transparent acrylic record crate holding instanced sleeves for browsing.
+  - **Center Hero (Turntable & Easel)**: Hi-Fi turntable with animated rotating vinyl, dynamic tonearm, tactile start/stop lever, and a propped "Now Spinning" easel displaying the current album's artwork.
+  - **Right Wing (Unified Tracklist Card)**: Prominently angled gatefold card displaying album metadata, tracks, playing track indicator, and custom scrollbar rendered directly to an interactive HTML Canvas texture.
+- **Lighting & Materials**: Built with `MeshPhysicalMaterial` for clearcoat acrylic, brushed chrome, lacquer finishes, and ambient/shadow tuning (`PCFShadowMap`, `ACESFilmicToneMapping`). Directional key lighting casts soft shadows, while neutral white/cyan fill lights and cyan rim lighting prevent dark washouts.
+- **Curved Panorama Backdrop**: Uses a 180° cylinder geometry with exact 2:1 aspect ratio matching 2K sky panos (`/images/daysky.jpg` and `/images/nightsky2.jpg`), eliminating distortion or stretching.
+- **Atmospheric Themes**: Toggled via the top bar or pressing `T` (persisted to `localStorage` under `chromatix_record_bin_theme`). Dynamically updates fog color/density, sky backdrop, lighting colors, and material colors/emissives between Sunlit Conservatory (day) and Midnight Lounge (night).
+
+### Record Crate & Sleeve Pool
+
+- **Object Pooling**: Maintains an array of `MAX_VISIBLE_SLEEVES` (28) mesh instances rather than allocating/destroying meshes during scrolling.
+- **Windowing & Flip Physics**: As the user scrubs through records, sleeves are divided into:
+  - **Front Stack (Flipped)**: Up to 3 past records angled forward (`rotation.x = 0.48`, resting at `Y = 3.8`) against the acrylic front lip. Outermost exiting records fade out smoothly.
+  - **Rear Stack (Waiting)**: Up to 20 queued records leaning back (`rotation.x = -0.18`, resting at `Y = 5.95`).
+  - **Active Center Record**: The selected record is elevated upward with a smooth spring interpolation. When user interaction ceases, an idle timeout (`IDLE_TIMEOUT_MS = 1000`) smoothly lowers the record back flush into the crate.
+- **Artwork Loading & Caching**: Textures are loaded asynchronously using `THREE.TextureLoader` through `getProxiedImageUrl` (or native URL in Electron) with `sRGB` color space and mipmapping. Textures are cached in a local `Map` to prevent redundant network fetches.
+
+### Turntable & Kinetic Tonearm
+
+- **Platter & Vinyl**: When `playerPlaying` is active, the platter, vinyl disc, and center label spin continuously at 33 RPM rate.
+- **Tactile Lever**: A physical start/stop lever with an emissive jewel knob tilts downward when playing and upward when paused; clicking the lever or platter toggles playback.
+- **Dynamic Groove Tracking**: The tonearm assembly (gimbal ring, counterweight, arm tube, headshell, cartridge, stylus cantilever, needle tip) dynamically traverses across the vinyl grooves from lead-in (`-0.42` rad) to run-out (`-0.80` rad). The angle is continuously calculated as a function of the track and total album elapsed time via `playerX.getCurrentProgress()`.
+- **Hero Easel**: Stands behind the turntable and displays the sleeve of the album currently playing in the audio player (or browsed album if no track is playing).
+
+### Unified Tracklist Card (Canvas Texture & Raycasting)
+
+- **Canvas Rendering**: `renderTrackCardCanvas()` paints the album title, artist, year, track count, total duration, track rows with durations, active playing status indicator (`▶`), and a custom scrollbar thumb directly onto an off-screen HTML canvas at high DPI.
+- **Interactive Raycasting**: Mouse clicks and pointer movements raycast against the card mesh UV coordinates:
+  - Clicking any track row triggers immediate playback (`dispatch.playerModel.playerLoadAlbum` or `playerLoadIndex`).
+  - Clicking the card header area toggles playback of the album.
+  - Dragging vertically on the card surface or using the mouse wheel scrolls the tracklist with smooth inertia damping.
+  - Hovering over rows updates cursor style and draws a hover highlight background.
+- **Dirty State Optimization**: Redrawing the 2D canvas is expensive; the render loop checks `needsCardUpdate` against album ID, track ID, playing state, tracklist reference/count, rounded scroll position, hovered track index, and active theme to avoid redundant canvas repaints.
+
+### Butterchurn Visualizer Integration
+
+- **Modes**: Toggled via the top bar or pressing `V` (persisted to `localStorage` under `chromatix_record_bin_viz`):
+  - `'screen'` — Butterchurn renders as a full-screen background underlay behind the transparent WebGL canvas.
+  - `'dome'` — Butterchurn renders to a dynamic `CanvasTexture` mapped onto the curved 180° cylinder backdrop inside the 3D scene.
+  - `'off'` — Visualizer disabled; standard panoramic sky backdrop is displayed.
+- **Audio Reactivity**: Connected via `audioBridge.ts`. Real-time bass energy from `audioBridge.getAudioEnergy()` dynamically modulates ambient light intensity and console glass trim emissive glow.
+- **Preset Navigation**: Presets can be cycled forward (`B`), backward (`Shift+B`), or randomized (`R`). Supports an automated 25-second preset cycle timer (`isAutoCycle`).
+
+### Controls & Navigation
+
+- **Pointer**: Drag horizontally across the crate to flip records; drag vertically or scroll wheel over the card to scroll tracklists; click records to flip or play; click turntable/easel/header to play/pause.
+- **Audio Cues**: Flipping records triggers a lightweight synthetic audio click generated on the fly via `AudioContext` oscillator and biquad filter (`playFlipSound`).
+- **A-Z Jump Bar & Scrubber**: Bottom docked scrubber slider and alphabet buttons jump directly to letters matching either artist or title (depending on active sort).
+- **Keyboard Shortcuts**:
+  - `ArrowLeft` / `ArrowRight` / `ArrowUp` / `ArrowDown`: Step single record
+  - `PageUp` / `PageDown`: Step 10 records
+  - `Home` / `End`: Jump to first / last record
+  - `Space`: Toggle play/pause
+  - `Enter`: Play selected browsed album
+  - `T`: Toggle Day / Night theme
+  - `V`: Cycle visualizer mode (Screen / Dome / Off)
+  - `B` / `Shift+B`: Next / Previous visualizer preset
+  - `R`: Random visualizer preset
+  - `F`: Toggle focus layout (cinematic mode)
+  - `Escape`: Exit focus mode or exit 3D Crate view back to Grid view
+
+### Performance & Resource Disposal
+
+- **Paced Animation Loop**: Frame rate is paced to ~30-60 FPS using timestamp checks (`TARGET_FRAME_MS`) to prevent unthrottled loop execution on high refresh rate displays (144Hz/240Hz). The loop stops completely when idle (`isLoopRunning = false`, `shouldKeepRendering = false`).
+- **Disposal on Unmount**: When the component unmounts or exits:
+  - Animation frame request is canceled.
+  - All DOM event listeners (pointer, wheel, resize, keydown) are removed.
+  - Scene is traversed to dispose all geometries and materials.
+  - Textures in `textureCache`, backdrop textures, visualizer textures, and track card canvas textures are disposed.
+  - `WebGLRenderer` is disposed and removed from DOM.
+  - `visualizerService.destroyVisualizer()` cleans up Butterchurn WebGL2 resources.
 
 ## TypeScript Migration
 
