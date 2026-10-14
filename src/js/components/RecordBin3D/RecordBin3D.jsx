@@ -12,9 +12,19 @@ import { ActionSort, Icon } from 'js/components';
 import { durationToStringMed, formatReleaseYear, getLocalStorage, setLocalStorage } from 'js/utils';
 import * as bridge from 'js/services/bridge';
 import * as playerX from 'js/services/player';
+import * as audioBridge from 'js/services/audioBridge';
+import * as visualizerService from 'js/services/visualizer';
 import platformFeatures from 'js/_config/platformFeatures';
 
 import style from './RecordBin3D.module.scss';
+
+const formatPresetName = (name) => {
+  if (!name) return 'Visualizer';
+  // Strip common long MilkDrop author prefixes if separated by hyphen
+  const parts = name.split(' - ');
+  const clean = parts.length > 1 ? parts.slice(1).join(' - ') : name;
+  return clean.length > 24 ? clean.slice(0, 22) + '…' : clean;
+};
 
 // ======================================================================
 // AUDIO CUES & IMAGE PROXY
@@ -409,10 +419,82 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
 
   const isDark = sceneTheme === 'dark';
 
+  const [visualizerMode, setVisualizerMode] = useState(() => {
+    const saved = getLocalStorage('chromatix_record_bin_viz');
+    if (saved === 'screen' || saved === 'dome' || saved === 'off') return saved;
+    return 'screen'; // Default to full-screen BeatDrop visualizer
+  });
+
+  const [currentPreset, setCurrentPreset] = useState('Flexi, martin + geiss - dedicated to the sherwin maxawow');
+  const [isAutoCycle, setIsAutoCycle] = useState(true);
+
+  const [isUiFaded, setIsUiFaded] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isFocusLayout, setIsFocusLayout] = useState(() => {
+    return getLocalStorage('chromatix_record_bin_layout') === 'focus';
+  });
+  const idleTimerRef = useRef(null);
+  const isUiFadedRef = useRef(false);
+  isUiFadedRef.current = isUiFaded;
+  const resetIdleTimerRef = useRef(null);
+  const isHovering2DUiRef = useRef(false);
+  const lastPointerPosRef = useRef(null);
+
+  const visualizerCanvasRef = useRef(null);
+  const visualizerInitializedRef = useRef(false);
+  const applyVisualizerModeRef = useRef(null);
+
   const handleToggleTheme = useCallback(() => {
     setSceneTheme((prev) => {
       const next = prev === 'dark' ? 'light' : 'dark';
       setLocalStorage('chromatix_record_bin_theme', next);
+      return next;
+    });
+  }, []);
+
+  const handleCycleVisualizerMode = useCallback(() => {
+    resetIdleTimerRef.current?.();
+    setVisualizerMode((prev) => {
+      const next = prev === 'screen' ? 'dome' : prev === 'dome' ? 'off' : 'screen';
+      setLocalStorage('chromatix_record_bin_viz', next);
+      return next;
+    });
+  }, []);
+
+  const handleToggleFocusLayout = useCallback(() => {
+    resetIdleTimerRef.current?.();
+    setIsFocusLayout((prev) => {
+      const next = !prev;
+      setLocalStorage('chromatix_record_bin_layout', next ? 'focus' : 'standard');
+      return next;
+    });
+    requestRenderRef.current?.();
+  }, []);
+
+  const handleNextPreset = useCallback(() => {
+    resetIdleTimerRef.current?.();
+    const name = visualizerService.nextPreset(2.5);
+    if (name) setCurrentPreset(name);
+  }, []);
+
+  const handlePrevPreset = useCallback(() => {
+    resetIdleTimerRef.current?.();
+    const name = visualizerService.prevPreset(2.5);
+    if (name) setCurrentPreset(name);
+  }, []);
+
+  const handleRandomPreset = useCallback(() => {
+    resetIdleTimerRef.current?.();
+    const name = visualizerService.randomPreset(2.5);
+    if (name) setCurrentPreset(name);
+  }, []);
+
+  const handleToggleAutoCycle = useCallback(() => {
+    resetIdleTimerRef.current?.();
+    setIsAutoCycle((prev) => {
+      const next = !prev;
+      if (next) visualizerService.startAutoCycle(25000, 2.5);
+      else visualizerService.stopAutoCycle();
       return next;
     });
   }, []);
@@ -458,8 +540,142 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     lastInteractionTime: performance.now(),
   });
 
+  const checkIs2DUiHovered = useCallback(() => {
+    if (isHovering2DUiRef.current) return true;
+
+    if (lastPointerPosRef.current) {
+      const el = document.elementFromPoint(lastPointerPosRef.current.x, lastPointerPosRef.current.y);
+      if (
+        el &&
+        el.closest(
+          `.${style.topBarLeft}, .${style.searchWrap}, .${style.playerDock}, .${style.scrubberCard}, .${style.azBar}, .${style.returnLayoutBtn}, [class*="UserMenu_wrap"]`
+        )
+      ) {
+        return true;
+      }
+    }
+
+    const hoveredEl = document.querySelector(
+      `.${style.topBarLeft}:hover, .${style.searchWrap}:hover, .${style.playerDock}:hover, .${style.scrubberCard}:hover, .${style.azBar}:hover, .${style.returnLayoutBtn}:hover, [class*="UserMenu_wrap"]:hover`
+    );
+    if (hoveredEl) return true;
+
+    return false;
+  }, []);
+
+  const handle2DUiPointerEnter = useCallback(() => {
+    isHovering2DUiRef.current = true;
+  }, []);
+
+  const handle2DUiPointerLeave = useCallback(() => {
+    isHovering2DUiRef.current = false;
+    resetIdleTimerRef.current?.();
+  }, []);
+
+  const resetIdleTimer = useCallback(() => {
+    posRef.current.lastInteractionTime = performance.now();
+    if (isUiFadedRef.current) {
+      isUiFadedRef.current = false;
+      setIsUiFaded(false);
+    }
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+    if (visualizerMode !== 'off' && !isSearchFocused) {
+      const checkAndFade = () => {
+        if (checkIs2DUiHovered()) {
+          idleTimerRef.current = setTimeout(checkAndFade, 500);
+          return;
+        }
+        isUiFadedRef.current = true;
+        setIsUiFaded(true);
+        requestRenderRef.current?.();
+      };
+      idleTimerRef.current = setTimeout(checkAndFade, 1000);
+    }
+  }, [visualizerMode, isSearchFocused, checkIs2DUiHovered]);
+
+  resetIdleTimerRef.current = resetIdleTimer;
+
+  useEffect(() => {
+    resetIdleTimer();
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+    };
+  }, [resetIdleTimer]);
+
+  useEffect(() => {
+    const handlePointerOver = (e) => {
+      const target = e.target;
+      if (
+        target &&
+        target.closest?.(
+          `.${style.topBarLeft}, .${style.searchWrap}, .${style.playerDock}, .${style.scrubberCard}, .${style.azBar}, .${style.returnLayoutBtn}, [class*="UserMenu_wrap"]`
+        )
+      ) {
+        isHovering2DUiRef.current = true;
+      }
+    };
+
+    const handlePointerOut = (e) => {
+      const related = e.relatedTarget;
+      if (
+        !related ||
+        !related.closest?.(
+          `.${style.topBarLeft}, .${style.searchWrap}, .${style.playerDock}, .${style.scrubberCard}, .${style.azBar}, .${style.returnLayoutBtn}, [class*="UserMenu_wrap"]`
+        )
+      ) {
+        isHovering2DUiRef.current = false;
+        resetIdleTimer();
+      }
+    };
+
+    const handlePointerMove = (e) => {
+      lastPointerPosRef.current = { x: e.clientX, y: e.clientY };
+    };
+
+    window.addEventListener('pointerover', handlePointerOver);
+    window.addEventListener('pointerout', handlePointerOut);
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+
+    return () => {
+      window.removeEventListener('pointerover', handlePointerOver);
+      window.removeEventListener('pointerout', handlePointerOut);
+      window.removeEventListener('pointermove', handlePointerMove);
+    };
+  }, [resetIdleTimer]);
+
+  useEffect(() => {
+    if (isUiFaded) {
+      document.body.classList.add('record-bin-ui-faded');
+    } else {
+      document.body.classList.remove('record-bin-ui-faded');
+    }
+    return () => {
+      document.body.classList.remove('record-bin-ui-faded');
+    };
+  }, [isUiFaded]);
+
+  useEffect(() => {
+    if (isFocusLayout) {
+      document.body.classList.add('record-bin-focus-layout');
+    } else {
+      document.body.classList.remove('record-bin-focus-layout');
+    }
+    return () => {
+      document.body.classList.remove('record-bin-focus-layout');
+    };
+  }, [isFocusLayout]);
+
   const currentThemeRef = useRef(sceneTheme);
   currentThemeRef.current = sceneTheme;
+
+  const currentVizModeRef = useRef(visualizerMode);
+  currentVizModeRef.current = visualizerMode;
 
   const requestRenderRef = useRef(null);
   const applyThemeRef = useRef(null);
@@ -478,11 +694,22 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     currentTrack,
     playingTrackKeys,
     playingTrackList,
+    visualizerMode,
+    isFocusLayout,
   };
 
   useEffect(() => {
     requestRenderRef.current?.();
-  }, [playerPlaying, playingAlbumId, currentTrack, playingAlbumTracks, selectedIndex, filteredAlbums]);
+  }, [
+    playerPlaying,
+    playingAlbumId,
+    currentTrack,
+    playingAlbumTracks,
+    selectedIndex,
+    filteredAlbums,
+    visualizerMode,
+    isFocusLayout,
+  ]);
 
   useEffect(() => {
     if (applyThemeRef.current) {
@@ -490,8 +717,41 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     }
   }, [sceneTheme]);
 
+  useEffect(() => {
+    if (applyVisualizerModeRef.current) {
+      applyVisualizerModeRef.current(visualizerMode);
+    }
+    requestRenderRef.current?.();
+  }, [visualizerMode]);
+
+  // Initialise Butterchurn visualizer canvas
+  useEffect(() => {
+    if (!visualizerCanvasRef.current) return;
+    const canvas = visualizerCanvasRef.current;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = Math.floor(w * 0.85);
+    canvas.height = Math.floor(h * 0.85);
+
+    visualizerService.initVisualizer(canvas).then((success) => {
+      if (success) {
+        visualizerInitializedRef.current = true;
+        setCurrentPreset(visualizerService.getCurrentPresetName());
+        if (isAutoCycle) {
+          visualizerService.startAutoCycle(25000, 2.5);
+        }
+        requestRenderRef.current?.();
+      }
+    });
+
+    return () => {
+      visualizerService.destroyVisualizer();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const goToIndex = useCallback((index) => {
-    posRef.current.lastInteractionTime = performance.now();
+    resetIdleTimerRef.current?.();
     const total = stateRef.current.filteredAlbums?.length || 1;
     const clamped = Math.max(0, Math.min(total - 1, index));
     setSelectedIndex((prev) => {
@@ -602,7 +862,7 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-      posRef.current.lastInteractionTime = performance.now();
+      resetIdleTimerRef.current?.();
       const currentIdx = stateRef.current.selectedIndex;
       const total = stateRef.current.filteredAlbums?.length || 0;
 
@@ -633,14 +893,46 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       } else if (e.key === 't' || e.key === 'T') {
         e.preventDefault();
         handleToggleTheme();
+      } else if (e.key === 'v' || e.key === 'V') {
+        e.preventDefault();
+        handleCycleVisualizerMode();
+      } else if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handlePrevPreset();
+        } else {
+          handleNextPreset();
+        }
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        handleRandomPreset();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        handleToggleFocusLayout();
       } else if (e.key === 'Escape') {
-        handleExit();
+        if (stateRef.current.isFocusLayout) {
+          e.preventDefault();
+          handleToggleFocusLayout();
+        } else {
+          handleExit();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToIndex, handleTogglePlay, handlePlayAlbum, handleExit, handleToggleTheme]);
+  }, [
+    goToIndex,
+    handleTogglePlay,
+    handlePlayAlbum,
+    handleExit,
+    handleToggleTheme,
+    handleCycleVisualizerMode,
+    handleNextPreset,
+    handlePrevPreset,
+    handleRandomPreset,
+    handleToggleFocusLayout,
+  ]);
 
   // ======================================================================
   // THREE.JS GLASSHOUSE FOREST CONSERVATORY SCENE
@@ -670,13 +962,16 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.shadowMap.autoUpdate = false;
     renderer.shadowMap.needsUpdate = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = isDark ? 1.08 : 1.04;
 
     mountRef.current.replaceChildren(renderer.domElement);
+
+    let shadowNeedsUpdate = true;
+    let requestRender = () => {};
 
     const textureLoader = new THREE.TextureLoader();
     textureLoader.setCrossOrigin('anonymous');
@@ -686,8 +981,9 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       if (!url) return null;
       const targetUrl = getProxiedImageUrl(url);
       if (textureCache.has(targetUrl)) return textureCache.get(targetUrl);
-      const tex = textureLoader.load(targetUrl, () => {
-        tex.needsUpdate = true;
+      const tex = textureLoader.load(targetUrl, (loadedTex) => {
+        if (loadedTex) loadedTex.needsUpdate = true;
+        else if (tex) tex.needsUpdate = true;
         shadowNeedsUpdate = true;
         requestRender();
       });
@@ -738,6 +1034,9 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     const backdropMesh = new THREE.Mesh(backdropGeo, backdropMat);
     backdropMesh.position.set(0, 14, -10);
     scene.add(backdropMesh);
+
+    let visualizerTexture = null;
+    let applyVisualizerMode = null;
 
     // Ambient light: Soft tropical sky azure in day, deep navy in dark mode
     const ambientLight = new THREE.AmbientLight(isDark ? 0x1a3348 : 0x7eccf5, isDark ? 0.8 : 0.95);
@@ -1229,10 +1528,16 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       const fogCol = dark ? 0x031422 : 0x6ec8f5;
       scene.fog.color.setHex(fogCol);
       scene.fog.density = dark ? 0.007 : 0.005;
-      scene.background.setHex(fogCol);
-
-      renderer.toneMappingExposure = dark ? 1.08 : 1.04;
-      loadBackdrop(dark);
+      if (currentVizModeRef.current === 'off') {
+        scene.background.setHex(fogCol);
+        loadBackdrop(dark);
+      } else {
+        scene.background = null;
+        if (currentVizModeRef.current === 'dome' && visualizerTexture) {
+          backdropMat.map = visualizerTexture;
+          backdropMat.needsUpdate = true;
+        }
+      }
 
       ambientLight.color.setHex(dark ? 0x1a3348 : 0x7eccf5);
       ambientLight.intensity = dark ? 0.8 : 0.95;
@@ -1286,12 +1591,16 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     let targetArmTiltX = -0.04;
     let currentArmTiltX = -0.04;
 
-    let shadowNeedsUpdate = true;
+    let layoutProgress = stateRef.current.isFocusLayout ? 1.0 : 0.0;
+    let targetNormalizedMouseX = 0;
+    let targetNormalizedMouseY = 0;
+
+    shadowNeedsUpdate = true;
     let isLoopRunning = false;
     let needsRender = true;
     let lastRenderedTheme = isDark;
 
-    const requestRender = () => {
+    requestRender = () => {
       needsRender = true;
       if (!isLoopRunning) {
         isLoopRunning = true;
@@ -1341,7 +1650,7 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     const TARGET_FRAME_MS = 1000 / 30;
 
     // Continuous Animation Loop
-    const animate = (currentTime) => {
+    function animate(currentTime) {
       if (!isLoopRunning) return;
 
       if (currentTime) {
@@ -1356,6 +1665,47 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       const state = stateRef.current;
       const filtered = state.filteredAlbums || [];
       const totalAlbums = filtered.length;
+
+      // Smooth focus mode layout transition
+      const targetLayoutProgress = state.isFocusLayout ? 1.0 : 0.0;
+      const layoutDiff = targetLayoutProgress - layoutProgress;
+      const isLayoutTransitioning = Math.abs(layoutDiff) > 0.0002;
+      if (isLayoutTransitioning) {
+        layoutProgress += layoutDiff * 0.075;
+        shadowNeedsUpdate = true;
+      } else {
+        layoutProgress = targetLayoutProgress;
+      }
+
+      // Update positions and visibilities of wings and center stage
+      crateGroup.position.x = -17.6 + (-55.0 - -17.6) * layoutProgress;
+      crateGroup.visible = layoutProgress < 0.96;
+
+      trackCardGroup.position.x = 17.0 + (55.0 - 17.0) * layoutProgress;
+      trackCardGroup.visible = layoutProgress < 0.96;
+
+      turntableGroup.position.x = 0.0 + (-14.0 - 0.0) * layoutProgress;
+      turntableGroup.position.z = 3.5 + (-14.0 - 3.5) * layoutProgress;
+      turntableGroup.rotation.y = 0.0 + (0.12 - 0.0) * layoutProgress;
+
+      easelGroup.position.x = -1.0 + (-13.5 - -1.0) * layoutProgress;
+      easelGroup.position.y = 5.4 + (0.6 - 5.4) * layoutProgress;
+      easelGroup.position.z = -7.2 + (-23.5 - -7.2) * layoutProgress;
+      easelGroup.rotation.y = 0.0 + (0.12 - 0.0) * layoutProgress;
+
+      // Base camera framing + subtle pointer parallax (pushed forward to minimize desk coverage)
+      const baseCamX = 0.6 + (-2.6 - 0.6) * layoutProgress;
+      const baseCamY = 17.0 + (8.8 - 17.0) * layoutProgress;
+      const baseCamZ = 43.0 + (16.5 - 43.0) * layoutProgress;
+      camera.position.set(
+        baseCamX + targetNormalizedMouseX * 1.5,
+        baseCamY + targetNormalizedMouseY * 1.0,
+        baseCamZ
+      );
+      const targetLookX = 0.0 + (-0.8 - 0.0) * layoutProgress;
+      const targetLookY = 8.0 + (7.2 - 8.0) * layoutProgress;
+      const targetLookZ = 1.0 + (-14.0 - 1.0) * layoutProgress;
+      camera.lookAt(targetLookX, targetLookY, targetLookZ);
 
       const diff = posRef.current.target - continuousPos;
       if (Math.abs(diff) > 0.001) {
@@ -1680,6 +2030,19 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
         shadowNeedsUpdate = false;
       }
 
+      if (state.visualizerMode !== 'off') {
+        visualizerService.renderVisualizer();
+        if (state.visualizerMode === 'dome' && visualizerTexture) {
+          visualizerTexture.needsUpdate = true;
+        }
+        if (state.playerPlaying) {
+          const energy = audioBridge.getAudioEnergy();
+          const dark = currentThemeRef.current === 'dark';
+          ambientLight.intensity = (dark ? 0.8 : 0.95) + energy.bass * 0.35;
+          glassTrimMat.emissiveIntensity = (dark ? 0.5 : 0.3) + energy.bass * 0.65;
+        }
+      }
+
       renderer.render(scene, camera);
 
       const isPlaying = state.playerPlaying;
@@ -1687,9 +2050,17 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       const isCardScrolling =
         Math.abs(cardScrollTarget.current - cardScrollCurrent.current) > 0.05 || cardDragRef.current.isDragging;
       const isLiftMoving = Math.abs(targetLiftScale - currentLiftScale) > 0.001;
+      const isVizActive = state.visualizerMode !== 'off';
 
       const shouldKeepRendering =
-        isPlaying || isCrateMoving || isCardScrolling || isLiftMoving || armIsMoving || needsRender;
+        isPlaying ||
+        isCrateMoving ||
+        isCardScrolling ||
+        isLiftMoving ||
+        armIsMoving ||
+        isLayoutTransitioning ||
+        needsRender ||
+        (isVizActive && isPlaying);
 
       if (shouldKeepRendering) {
         needsRender = false;
@@ -1699,12 +2070,50 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       }
     };
 
+    applyVisualizerMode = (mode) => {
+      const dark = currentThemeRef.current === 'dark';
+      const fogCol = dark ? 0x031422 : 0x6ec8f5;
+
+      if (mode === 'off') {
+        scene.background = new THREE.Color(fogCol);
+        backdropMesh.visible = true;
+        if (currentBgTex) {
+          backdropMat.map = currentBgTex;
+        } else {
+          loadBackdrop(dark);
+        }
+        backdropMat.needsUpdate = true;
+      } else if (mode === 'screen') {
+        scene.background = null;
+        backdropMesh.visible = false;
+      } else if (mode === 'dome') {
+        scene.background = null;
+        backdropMesh.visible = true;
+        if (visualizerCanvasRef.current) {
+          if (!visualizerTexture) {
+            visualizerTexture = new THREE.CanvasTexture(visualizerCanvasRef.current);
+            visualizerTexture.colorSpace = THREE.SRGBColorSpace;
+            visualizerTexture.minFilter = THREE.LinearFilter;
+            visualizerTexture.magFilter = THREE.LinearFilter;
+            visualizerTexture.wrapS = THREE.RepeatWrapping;
+            visualizerTexture.repeat.x = -1;
+          }
+          backdropMat.map = visualizerTexture;
+          backdropMat.needsUpdate = true;
+        }
+      }
+      shadowNeedsUpdate = true;
+      requestRender();
+    };
+    applyVisualizerModeRef.current = applyVisualizerMode;
+    applyVisualizerMode(currentVizModeRef.current);
+
     requestRender();
 
     const canvas = renderer.domElement;
 
     const onPointerDown = (e) => {
-      posRef.current.lastInteractionTime = performance.now();
+      resetIdleTimerRef.current?.();
       requestRender();
       const rect = canvas.getBoundingClientRect();
       mouseVector.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1712,18 +2121,20 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       raycaster.setFromCamera(mouseVector, camera);
 
       // 1. Check if clicking on the Unified Tracklist Card
-      const cardHits = raycaster.intersectObject(trackCardMesh, false);
-      if (cardHits.length > 0) {
-        cardDragRef.current = {
-          isDragging: true,
-          startY: e.clientY,
-          startX: e.clientX,
-          startScroll: cardScrollTarget.current,
-          dragDistance: 0,
-          wasDrag: false,
-        };
-        posRef.current.isDragging = false;
-        return;
+      if (trackCardGroup.visible) {
+        const cardHits = raycaster.intersectObject(trackCardMesh, false);
+        if (cardHits.length > 0) {
+          cardDragRef.current = {
+            isDragging: true,
+            startY: e.clientY,
+            startX: e.clientX,
+            startScroll: cardScrollTarget.current,
+            dragDistance: 0,
+            wasDrag: false,
+          };
+          posRef.current.isDragging = false;
+          return;
+        }
       }
 
       // 2. Check if clicking Turntable controls, Hero Easel, or Tonearm
@@ -1743,20 +2154,28 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
 
     const onPointerMove = (e) => {
       const dist = Math.hypot(e.clientX - lastPointerX, e.clientY - lastPointerY);
-      if (dist > 3) {
+      if (dist > 3 || isUiFadedRef.current) {
         lastPointerX = e.clientX;
         lastPointerY = e.clientY;
-        posRef.current.lastInteractionTime = performance.now();
+        resetIdleTimerRef.current?.();
       }
 
       const rect = canvas.getBoundingClientRect();
       const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const ny = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-      // Subtle baseline parallax
-      camera.position.x = 0.6 + nx * 1.5;
-      camera.position.y = 17.0 + ny * 1.0;
-      camera.position.z = 43.0;
-      camera.lookAt(0, 8.0, 1.0);
+      targetNormalizedMouseX = nx;
+      targetNormalizedMouseY = ny;
+      // Subtle baseline parallax with dynamic layout base
+      const baseCamX = 0.6 + (-2.6 - 0.6) * layoutProgress;
+      const baseCamY = 17.0 + (8.8 - 17.0) * layoutProgress;
+      const baseCamZ = 43.0 + (16.5 - 43.0) * layoutProgress;
+      camera.position.x = baseCamX + nx * 1.5;
+      camera.position.y = baseCamY + ny * 1.0;
+      camera.position.z = baseCamZ;
+      const targetLookX = 0.0 + (-0.8 - 0.0) * layoutProgress;
+      const targetLookY = 8.0 + (7.2 - 8.0) * layoutProgress;
+      const targetLookZ = 1.0 + (-14.0 - 1.0) * layoutProgress;
+      camera.lookAt(targetLookX, targetLookY, targetLookZ);
       requestRender();
 
       // Handle card dragging (smooth vertical scrolling of tracklist on card surface)
@@ -1780,27 +2199,41 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       }
 
       // Check hover on tracklist card
-      mouseVector.x = nx;
-      mouseVector.y = ny;
-      raycaster.setFromCamera(mouseVector, camera);
+      if (trackCardGroup.visible) {
+        mouseVector.x = nx;
+        mouseVector.y = ny;
+        raycaster.setFromCamera(mouseVector, camera);
 
-      const cardHits = raycaster.intersectObject(trackCardMesh, false);
-      if (cardHits.length > 0 && cardHits[0].uv) {
-        const uv = cardHits[0].uv;
-        const canvasX = uv.x * 1024;
-        const canvasY = (1 - uv.y) * 1100;
+        const cardHits = raycaster.intersectObject(trackCardMesh, false);
+        if (cardHits.length > 0 && cardHits[0].uv) {
+          const uv = cardHits[0].uv;
+          const canvasX = uv.x * 1024;
+          const canvasY = (1 - uv.y) * 1100;
 
-        const viewportTop = 236;
-        const viewportBottom = 1110;
-        const rowHeight = 56;
-        const trks = stateRef.current.playingAlbumTracks || [];
+          const viewportTop = 236;
+          const viewportBottom = 1110;
+          const rowHeight = 56;
+          const trks = stateRef.current.playingAlbumTracks || [];
 
-        if (canvasY >= viewportTop && canvasY <= viewportBottom) {
-          const relY = canvasY - viewportTop + cardScrollCurrent.current;
-          const hovIdx = Math.floor(relY / rowHeight);
-          if (hovIdx >= 0 && hovIdx < trks.length) {
-            if (hoveredTrackIndexRef.current !== hovIdx) {
-              hoveredTrackIndexRef.current = hovIdx;
+          if (canvasY >= viewportTop && canvasY <= viewportBottom) {
+            const relY = canvasY - viewportTop + cardScrollCurrent.current;
+            const hovIdx = Math.floor(relY / rowHeight);
+            if (hovIdx >= 0 && hovIdx < trks.length) {
+              if (hoveredTrackIndexRef.current !== hovIdx) {
+                hoveredTrackIndexRef.current = hovIdx;
+                requestRender();
+              }
+              canvas.style.cursor = 'pointer';
+            } else {
+              if (hoveredTrackIndexRef.current !== -1) {
+                hoveredTrackIndexRef.current = -1;
+                requestRender();
+              }
+              canvas.style.cursor = 'default';
+            }
+          } else if (canvasY < viewportTop) {
+            if (hoveredTrackIndexRef.current !== -1) {
+              hoveredTrackIndexRef.current = -1;
               requestRender();
             }
             canvas.style.cursor = 'pointer';
@@ -1811,12 +2244,6 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
             }
             canvas.style.cursor = 'default';
           }
-        } else if (canvasY < viewportTop) {
-          if (hoveredTrackIndexRef.current !== -1) {
-            hoveredTrackIndexRef.current = -1;
-            requestRender();
-          }
-          canvas.style.cursor = 'pointer';
         } else {
           if (hoveredTrackIndexRef.current !== -1) {
             hoveredTrackIndexRef.current = -1;
@@ -1843,7 +2270,7 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     };
 
     const onPointerUp = () => {
-      posRef.current.lastInteractionTime = performance.now();
+      resetIdleTimerRef.current?.();
       if (cardDragRef.current.isDragging) {
         cardDragRef.current.isDragging = false;
         cardDragRef.current.wasDrag = cardDragRef.current.dragDistance > 6;
@@ -1860,7 +2287,7 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
 
     const onWheel = (e) => {
       e.preventDefault();
-      posRef.current.lastInteractionTime = performance.now();
+      resetIdleTimerRef.current?.();
 
       const rect = canvas.getBoundingClientRect();
       mouseVector.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1868,20 +2295,24 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       raycaster.setFromCamera(mouseVector, camera);
 
       // Check if mouse is over the tracklist card
-      const cardHits = raycaster.intersectObject(trackCardMesh, false);
-      if (cardHits.length > 0 && cardHits[0].uv) {
-        const trks = stateRef.current.playingAlbumTracks || [];
-        const totalTracks = trks.length;
-        const viewportHeight = 874;
-        const rowHeight = 56;
-        const maxScroll = Math.max(0, totalTracks * rowHeight - viewportHeight);
+      if (trackCardGroup.visible) {
+        const cardHits = raycaster.intersectObject(trackCardMesh, false);
+        if (cardHits.length > 0 && cardHits[0].uv) {
+          const trks = stateRef.current.playingAlbumTracks || [];
+          const totalTracks = trks.length;
+          const viewportHeight = 874;
+          const rowHeight = 56;
+          const maxScroll = Math.max(0, totalTracks * rowHeight - viewportHeight);
 
-        if (maxScroll > 0) {
-          cardScrollTarget.current = Math.max(0, Math.min(maxScroll, cardScrollTarget.current + e.deltaY * 0.9));
-          requestRender();
+          if (maxScroll > 0) {
+            cardScrollTarget.current = Math.max(0, Math.min(maxScroll, cardScrollTarget.current + e.deltaY * 0.9));
+            requestRender();
+          }
+          return;
         }
-        return;
       }
+
+      if (!crateGroup.visible) return;
 
       // Otherwise wheel navigates albums in the acrylic crate
       const step = e.deltaY > 0 ? 1 : -1;
@@ -1900,7 +2331,7 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
     const mouseVector = new THREE.Vector2();
 
     const onClick = (e) => {
-      posRef.current.lastInteractionTime = performance.now();
+      resetIdleTimerRef.current?.();
       requestRender();
       // If pointer was dragged on the card, suppress click
       if (cardDragRef.current.wasDrag) {
@@ -1932,57 +2363,66 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       }
 
       // 3. Check if clicking Unified Tracklist Card
-      const cardHits = raycaster.intersectObject(trackCardMesh, false);
-      if (cardHits.length > 0) {
-        const hit = cardHits[0];
-        if (hit.uv) {
-          const uvX = hit.uv.x;
-          const uvY = hit.uv.y;
-          const canvasX = uvX * 1024;
-          const canvasY = (1 - uvY) * 1100;
+      if (trackCardGroup.visible) {
+        const cardHits = raycaster.intersectObject(trackCardMesh, false);
+        if (cardHits.length > 0) {
+          const hit = cardHits[0];
+          if (hit.uv) {
+            const uvX = hit.uv.x;
+            const uvY = hit.uv.y;
+            const canvasX = uvX * 1024;
+            const canvasY = (1 - uvY) * 1100;
 
-          const viewportTop = 236;
-          const viewportBottom = 1110;
-          const rowHeight = 56;
-          const trks = stateRef.current.playingAlbumTracks || [];
+            const viewportTop = 236;
+            const viewportBottom = 1110;
+            const rowHeight = 56;
+            const trks = stateRef.current.playingAlbumTracks || [];
 
-          if (canvasY >= viewportTop && canvasY <= viewportBottom) {
-            const currentScroll = cardScrollCurrent.current;
-            const relativeY = canvasY - viewportTop + currentScroll;
-            const clickedIdx = Math.floor(relativeY / rowHeight);
+            if (canvasY >= viewportTop && canvasY <= viewportBottom) {
+              const currentScroll = cardScrollCurrent.current;
+              const relativeY = canvasY - viewportTop + currentScroll;
+              const clickedIdx = Math.floor(relativeY / rowHeight);
 
-            if (clickedIdx >= 0 && clickedIdx < trks.length) {
-              handlePlayTrack(clickedIdx);
+              if (clickedIdx >= 0 && clickedIdx < trks.length) {
+                handlePlayTrack(clickedIdx);
+                return;
+              }
+            } else if (canvasY < viewportTop) {
+              // Clicking header toggles album play/pause
+              handleTogglePlay();
               return;
             }
-          } else if (canvasY < viewportTop) {
-            // Clicking header toggles album play/pause
-            handleTogglePlay();
-            return;
           }
+          return;
         }
-        return;
       }
 
       // 5. Check if clicking a record in the crate
-      const visibleMeshes = sleevePool.filter((s) => s.mesh.visible && s.frontMat.opacity > 0.35).map((s) => s.mesh);
-      const intersects = raycaster.intersectObjects(visibleMeshes, false);
+      if (crateGroup.visible) {
+        const visibleMeshes = sleevePool.filter((s) => s.mesh.visible && s.frontMat.opacity > 0.35).map((s) => s.mesh);
+        const intersects = raycaster.intersectObjects(visibleMeshes, false);
 
-      if (intersects.length > 0) {
-        const hitMesh = intersects[0].object;
-        const hitItem = sleevePool.find((s) => s.mesh === hitMesh);
-        if (hitItem && hitItem.albumIndex >= 0) {
-          const state = stateRef.current;
-          if (hitItem.albumIndex === state.selectedIndex) {
-            handlePlayAlbum();
-          } else {
-            goToIndex(hitItem.albumIndex);
+        if (intersects.length > 0) {
+          const hitMesh = intersects[0].object;
+          const hitItem = sleevePool.find((s) => s.mesh === hitMesh);
+          if (hitItem && hitItem.albumIndex >= 0) {
+            const state = stateRef.current;
+            if (hitItem.albumIndex === state.selectedIndex) {
+              handlePlayAlbum();
+            } else {
+              goToIndex(hitItem.albumIndex);
+            }
           }
         }
       }
     };
 
+    const onWindowPointerDown = () => {
+      resetIdleTimerRef.current?.();
+    };
+
     canvas.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerdown', onWindowPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('wheel', onWheel, { passive: false });
@@ -2006,6 +2446,14 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
         lastRenderedTheme = null;
       }
 
+      if (visualizerCanvasRef.current) {
+        const vW = Math.floor(w * 0.85);
+        const vH = Math.floor(h * 0.85);
+        visualizerCanvasRef.current.width = vW;
+        visualizerCanvasRef.current.height = vH;
+        visualizerService.resizeVisualizer(vW, vH);
+      }
+
       shadowNeedsUpdate = true;
       requestRender();
     };
@@ -2016,9 +2464,11 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       cancelAnimationFrame(animationFrameId);
       requestRenderRef.current = null;
       applyThemeRef.current = null;
+      applyVisualizerModeRef.current = null;
 
       window.removeEventListener('resize', onResize);
       canvas.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointerdown', onWindowPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('wheel', onWheel);
@@ -2040,6 +2490,10 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
       textureCache.forEach((tex) => tex.dispose());
       textureCache.clear();
       if (currentBgTex) currentBgTex.dispose();
+      if (visualizerTexture) {
+        visualizerTexture.dispose();
+        visualizerTexture = null;
+      }
       trackCardTex.dispose();
 
       renderer.dispose();
@@ -2072,14 +2526,62 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
   };
 
   return (
-    <div className={clsx(style.container, { [style.darkMode]: isDark })} ref={containerRef}>
+    <div
+      className={clsx(style.container, {
+        [style.darkMode]: isDark,
+        [style.uiFaded]: isUiFaded,
+        [style.focusMode]: isFocusLayout,
+      })}
+      ref={containerRef}
+      onPointerDown={resetIdleTimer}
+    >
+      {/* BeatDrop / Butterchurn Music Visualizer Canvas Underlay */}
+      <canvas
+        ref={visualizerCanvasRef}
+        className={clsx(style.visualizerCanvas, {
+          [style.activeUnderlay]: visualizerMode === 'screen',
+          [style.hiddenCanvas]: visualizerMode !== 'screen',
+        })}
+      />
+
       <div className={style.canvasWrap} ref={mountRef} />
+
+      {/* Floating Return Button in Focus Mode */}
+      {isFocusLayout && (
+        <button
+          type="button"
+          className={style.returnLayoutBtn}
+          onClick={handleToggleFocusLayout}
+          onPointerEnter={handle2DUiPointerEnter}
+          onPointerLeave={handle2DUiPointerLeave}
+          title="Return to Crate View (F / Esc)"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+          <span>Crate View</span>
+        </button>
+      )}
 
       {/* Top Floating Bar: Minimalist with clear right side for Library switcher */}
       <div className={style.topBar}>
-        <div className={style.topBarLeft}>
+        <div
+          className={style.topBarLeft}
+          onPointerEnter={handle2DUiPointerEnter}
+          onPointerLeave={handle2DUiPointerLeave}
+        >
           <button className={style.exitButton} onClick={handleExit} title="Exit 3D View (Esc)">
-            <Icon icon="GridIcon" size={16} stroke />
+            <Icon icon="GridIcon" stroke />
             <span>Grid View</span>
           </button>
           <ActionSort
@@ -2098,8 +2600,8 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
           >
             {isDark ? (
               <svg
-                width="15"
-                height="15"
+                width="14"
+                height="14"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -2119,8 +2621,8 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
               </svg>
             ) : (
               <svg
-                width="15"
-                height="15"
+                width="14"
+                height="14"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -2133,23 +2635,116 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
             )}
             <span>{isDark ? 'Day' : 'Night'}</span>
           </button>
-          <span className={style.crateTitleBadge}>{filteredAlbums.length} Records</span>
+          <button
+            type="button"
+            className={clsx(style.vizToggleBtn, {
+              [style.vizActive]: visualizerMode !== 'off',
+            })}
+            onClick={handleCycleVisualizerMode}
+            title="Toggle BeatDrop Visualizer (V: Screen / Dome / Off)"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            <span>
+              {visualizerMode === 'screen' ? 'Viz: Screen' : visualizerMode === 'dome' ? 'Viz: Dome' : 'Viz: Off'}
+            </span>
+          </button>
+          {visualizerMode !== 'off' && (
+            <div className={style.presetBar}>
+              <button
+                type="button"
+                className={style.presetBtn}
+                onClick={handlePrevPreset}
+                title="Previous Preset (Shift+B)"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                className={style.presetNameBtn}
+                onClick={handleRandomPreset}
+                title={`Preset: ${currentPreset}\nClick for Random Preset (R)`}
+              >
+                {formatPresetName(currentPreset)}
+              </button>
+              <button type="button" className={style.presetBtn} onClick={handleNextPreset} title="Next Preset (B)">
+                ›
+              </button>
+              <button
+                type="button"
+                className={clsx(style.presetAutoBtn, { [style.autoActive]: isAutoCycle })}
+                onClick={handleToggleAutoCycle}
+                title={isAutoCycle ? 'Auto-Cycle: Active (25s)' : 'Auto-Cycle: Paused'}
+              >
+                Auto
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            className={clsx(style.focusToggleBtn, {
+              [style.focusActive]: isFocusLayout,
+            })}
+            onClick={handleToggleFocusLayout}
+            title={isFocusLayout ? 'Standard View (F)' : 'Focus Mode (F)'}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+              <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+            </svg>
+            <span>Focus</span>
+          </button>
         </div>
 
         {/* Frutiger Aero Glass Search Pill */}
-        <div className={style.searchWrap}>
-          <Icon icon="SearchIcon" size={15} stroke />
+        <div
+          className={style.searchWrap}
+          onPointerEnter={handle2DUiPointerEnter}
+          onPointerLeave={handle2DUiPointerLeave}
+        >
+          <Icon icon="SearchIcon" stroke />
           <input
             type="text"
             placeholder="Search records..."
             value={searchQuery}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
             onChange={(e) => {
+              resetIdleTimer();
               setSearchQuery(e.target.value);
               setSelectedIndex(0);
             }}
           />
           {searchQuery && (
-            <button className={style.clearBtn} onClick={() => setSearchQuery('')}>
+            <button
+              className={style.clearBtn}
+              onClick={() => {
+                setSearchQuery('');
+                resetIdleTimer();
+              }}
+            >
               ×
             </button>
           )}
@@ -2161,7 +2756,11 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
 
       {/* Streamlined Bottom-Left Dock: Now Spinning Player Bar Only (Upper card removed) */}
       <div className={style.bottomLeftDock}>
-        <div className={style.playerDock}>
+        <div
+          className={style.playerDock}
+          onPointerEnter={handle2DUiPointerEnter}
+          onPointerLeave={handle2DUiPointerLeave}
+        >
           <div
             className={style.nowSpinningSection}
             onClick={handleTogglePlay}
@@ -2208,7 +2807,11 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
 
       {/* Bottom Center Scrubber & A-Z bar */}
       <div className={style.bottomBar}>
-        <div className={style.scrubberCard}>
+        <div
+          className={style.scrubberCard}
+          onPointerEnter={handle2DUiPointerEnter}
+          onPointerLeave={handle2DUiPointerLeave}
+        >
           <button className={style.stepBtn} onClick={() => goToIndex(selectedIndex - 1)} title="Previous Record (←)">
             <Icon icon="TrackSkipPrevIcon" size={13} stroke />
           </button>
@@ -2219,7 +2822,10 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
               min={0}
               max={Math.max(0, filteredAlbums.length - 1)}
               value={selectedIndex}
-              onChange={(e) => goToIndex(parseInt(e.target.value, 10))}
+              onChange={(e) => {
+                resetIdleTimer();
+                goToIndex(parseInt(e.target.value, 10));
+              }}
               className={style.slider}
             />
             <span className={style.counter}>
@@ -2232,7 +2838,11 @@ export const RecordBin3D = ({ albums = [], sortValue, orderValue, setSort, setOr
           </button>
         </div>
 
-        <div className={style.azBar}>
+        <div
+          className={style.azBar}
+          onPointerEnter={handle2DUiPointerEnter}
+          onPointerLeave={handle2DUiPointerLeave}
+        >
           {alphabet.map((letter) => {
             const targetVal = isSortByArtist ? currentAlbum?.artist : currentAlbum?.title;
             const isActive = targetVal?.trim().toUpperCase().startsWith(letter);

@@ -6,9 +6,28 @@
   top: 20px;
   right: 20px;
   z-index: 555;
+  transition:
+    opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   // background: rgba(255, 0, 0, 0.1);
 
   @include mixins.electron-no-drag;
+
+  :global(body.record-bin-ui-faded) &:not(:has([data-state='open'])) {
+    opacity: 0;
+    pointer-events: none !important;
+    visibility: hidden;
+    transform: translateY(-8px);
+
+    * {
+      pointer-events: none !important;
+    }
+  }
+
+  :global(body.record-bin-focus-layout) & {
+    display: none !important;
+  }
 
   &SideBar {
     position: relative;
@@ -16,6 +35,13 @@
     left: 0;
     right: auto;
     z-index: auto;
+
+    :global(body.record-bin-ui-faded) & {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      visibility: visible !important;
+      transform: none !important;
+    }
   }
 
   &WithoutLibrary {

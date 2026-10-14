@@ -3,14 +3,9 @@
 
 .container {
   button {
-    display: inline-flex !important;
-    box-sizing: border-box !important;
-    justify-content: center !important;
-    align-items: center !important;
-    padding: 0 !important;
-    border: none !important;
-    cursor: pointer !important;
-    text-align: center !important;
+    box-sizing: border-box;
+    cursor: pointer;
+    font-family: inherit;
   }
 
   position: fixed;
@@ -23,12 +18,95 @@
   background: radial-gradient(circle at 50% 18%, #c5eaff 0%, #6ecbf8 45%, #1d8fd4 85%, #0e568f 100%);
   user-select: none;
   font-family: inherit;
+
+  &.uiFaded {
+    cursor: none;
+
+    .canvasWrap {
+      cursor: none;
+    }
+
+    .topBar {
+      opacity: 0;
+      pointer-events: none !important;
+      visibility: hidden;
+      transform: translateY(-8px);
+
+      * {
+        pointer-events: none !important;
+      }
+    }
+
+    .bottomLeftDock {
+      opacity: 0;
+      pointer-events: none !important;
+      visibility: hidden;
+      transform: translateY(8px);
+
+      * {
+        pointer-events: none !important;
+      }
+    }
+
+    .bottomBar {
+      opacity: 0;
+      pointer-events: none !important;
+      visibility: hidden;
+      transform: translate(-50%, 8px);
+
+      * {
+        pointer-events: none !important;
+      }
+    }
+
+    .returnLayoutBtn {
+      opacity: 0;
+      pointer-events: none !important;
+      visibility: hidden;
+      transform: translateY(-8px);
+
+      * {
+        pointer-events: none !important;
+      }
+    }
+  }
+
+  &.focusMode {
+    .topBar,
+    .bottomLeftDock,
+    .bottomBar {
+      display: none !important;
+    }
+  }
+}
+
+.visualizerCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+
+  &.activeUnderlay {
+    opacity: 1;
+  }
+
+  &.hiddenCanvas {
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 .canvasWrap {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 2;
   width: 100%;
   height: 100%;
   cursor: grab;
@@ -58,21 +136,28 @@
   right: 28px;
   z-index: 10;
   pointer-events: none;
+  transition:
+    opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .topBarLeft {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   pointer-events: auto;
 }
 
-.exitButton {
+@mixin topBarButton {
   display: inline-flex !important;
   justify-content: center !important;
   align-items: center !important;
-  gap: 8px !important;
-  padding: 9px 22px !important;
+  gap: 7px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  box-sizing: border-box !important;
+  padding: 0 12px !important;
   background: rgba(255, 255, 255, 0.78) !important;
   border: 1px solid rgba(255, 255, 255, 0.95) !important;
   border-radius: 20px !important;
@@ -81,10 +166,13 @@
     inset 0 1px 2px rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px) saturate(180%);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
   color: #02283e !important;
+  white-space: nowrap !important;
+  user-select: none !important;
 
   &:hover {
     background: rgba(255, 255, 255, 0.95) !important;
@@ -94,125 +182,210 @@
       inset 0 1px 2px #fff;
     transform: translateY(-1px);
     color: #007bbd !important;
+  }
+
+  svg,
+  :global([data-icon]) {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    color: inherit;
+  }
+}
+
+@mixin topBarButtonDark {
+  background: rgba(6, 24, 38, 0.8) !important;
+  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(0, 240, 255, 0.15);
+  color: #e8f7ff !important;
+
+  &:hover {
+    background: rgba(10, 36, 56, 0.95) !important;
+    border-color: #00f0ff !important;
+    box-shadow:
+      0 10px 28px rgba(0, 240, 255, 0.3),
+      inset 0 1px 1px rgba(0, 240, 255, 0.4);
+    transform: translateY(-1px);
+    color: #00f0ff !important;
+  }
+}
+
+.exitButton {
+  @include topBarButton;
 }
 
 .sortPill {
   display: inline-flex !important;
   align-items: center;
+  height: 28px;
 
   button {
-    display: inline-flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    gap: 7px !important;
-    padding: 9px 18px !important;
-    background: rgba(255, 255, 255, 0.78) !important;
-    border: 1px solid rgba(255, 255, 255, 0.95) !important;
-    border-radius: 20px !important;
-    box-shadow:
-      0 8px 24px rgba(0, 35, 60, 0.12),
-      inset 0 1px 2px rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px) saturate(180%);
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    cursor: pointer;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    color: #02283e !important;
+    @include topBarButton;
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.95) !important;
-      border-color: #009fe3 !important;
-      box-shadow:
-        0 10px 28px rgba(0, 159, 227, 0.28),
-        inset 0 1px 2px #fff;
-      transform: translateY(-1px);
-      color: #007bbd !important;
-    }
-
-    svg {
-      flex-shrink: 0;
-      color: inherit;
+    span {
+      display: inline-flex;
+      align-items: center;
+      line-height: 1;
+      opacity: 1 !important;
+      color: inherit !important;
+      margin: 0 !important;
     }
   }
 }
 
 .themeToggleBtn {
-  display: inline-flex !important;
-  justify-content: center !important;
-  align-items: center !important;
-  gap: 7px !important;
-  padding: 9px 20px !important;
-  background: rgba(255, 255, 255, 0.78) !important;
-  border: 1px solid rgba(255, 255, 255, 0.95) !important;
-  border-radius: 20px !important;
-  box-shadow:
-    0 8px 24px rgba(0, 35, 60, 0.12),
-    inset 0 1px 2px rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px) saturate(180%);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
-  color: #02283e !important;
+  @include topBarButton;
+}
 
-  svg {
-    flex-shrink: 0;
-  }
+.vizToggleBtn {
+  @include topBarButton;
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.95) !important;
+  &.vizActive {
+    background: rgba(0, 159, 227, 0.18) !important;
     border-color: #009fe3 !important;
-    box-shadow:
-      0 10px 28px rgba(0, 159, 227, 0.28),
-      inset 0 1px 2px #fff;
-    transform: translateY(-1px);
     color: #007bbd !important;
   }
 }
 
-.crateTitleBadge {
+.focusToggleBtn {
+  @include topBarButton;
+
+  &.focusActive {
+    background: rgba(0, 159, 227, 0.18) !important;
+    border-color: #009fe3 !important;
+    color: #007bbd !important;
+  }
+}
+
+.returnLayoutBtn {
+  @include topBarButton;
+  position: absolute;
+  top: 20px;
+  left: 28px;
+  z-index: 12;
+  transition:
+    opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.presetBar {
   display: inline-flex;
-  justify-content: center;
   align-items: center;
-  padding: 9px 22px;
-  background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  gap: 4px;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.95);
   border-radius: 20px;
-  box-shadow: 0 4px 14px rgba(0, 35, 60, 0.08);
-  backdrop-filter: blur(16px);
-  font-size: 12px;
-  line-height: 1;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #02304d;
+  box-shadow:
+    0 8px 24px rgba(0, 35, 60, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  color: #02283e;
+}
+
+.presetBtn {
+  display: inline-flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  background: rgba(0, 159, 227, 0.12) !important;
+  border-radius: 50% !important;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  font-weight: 800 !important;
+  color: #007bbd !important;
+
+  &:hover {
+    background: #009fe3 !important;
+    color: #ffffff !important;
+  }
+}
+
+.presetNameBtn {
+  display: inline-flex !important;
+  overflow: hidden !important;
+  align-items: center !important;
+  max-width: 150px !important;
+  padding: 0 4px !important;
+  background: transparent !important;
+  cursor: pointer;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: inherit !important;
+
+  &:hover {
+    color: #007bbd !important;
+  }
+}
+
+.presetAutoBtn {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 18px !important;
+  padding: 0 6px !important;
+  background: rgba(0, 35, 60, 0.08) !important;
+  border-radius: 10px !important;
+  cursor: pointer;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  color: #02304d !important;
+
+  &.autoActive {
+    background: #008be8 !important;
+    color: #ffffff !important;
+  }
 }
 
 .searchWrap {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 290px;
-  padding: 8px 18px;
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(255, 255, 255, 0.92);
-  border-radius: 22px;
+  gap: 8px;
+  width: 260px;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
   box-shadow:
-    0 8px 26px rgba(0, 35, 60, 0.1),
+    0 8px 24px rgba(0, 35, 60, 0.12),
     inset 0 1px 2px rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto;
   color: #02283e;
 
   &:focus-within {
-    width: 340px;
-    background: rgba(255, 255, 255, 0.94);
+    width: 300px;
+    background: rgba(255, 255, 255, 0.95);
     border-color: #009fe3;
     box-shadow:
-      0 10px 30px rgba(0, 159, 227, 0.22),
+      0 10px 28px rgba(0, 159, 227, 0.28),
       inset 0 1px 2px #fff;
     color: #007bbd;
+  }
+
+  svg,
+  :global([data-icon]) {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    color: inherit;
   }
 
   input {
@@ -220,7 +393,7 @@
     background: transparent;
     border: none;
     outline: none;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: #021a2d;
 
@@ -234,7 +407,7 @@
     background: transparent !important;
     border: none !important;
     cursor: pointer !important;
-    font-size: 16px !important;
+    font-size: 14px !important;
     line-height: 1 !important;
     color: rgba(2, 40, 62, 0.5) !important;
 
@@ -262,6 +435,10 @@
   left: 28px;
   z-index: 15;
   pointer-events: none;
+  transition:
+    opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .playerDock {
@@ -431,6 +608,10 @@
   z-index: 10;
   transform: translateX(-50%);
   pointer-events: none;
+  transition:
+    opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .scrubberCard {
@@ -553,45 +734,68 @@
 
   .exitButton,
   .themeToggleBtn,
+  .vizToggleBtn,
+  .focusToggleBtn,
+  .returnLayoutBtn,
   .sortPill button {
-    background: rgba(6, 24, 38, 0.8) !important;
-    border-color: rgba(0, 240, 255, 0.3) !important;
+    @include topBarButtonDark;
+  }
+
+  .vizToggleBtn.vizActive,
+  .focusToggleBtn.focusActive {
+    background: rgba(0, 240, 255, 0.22) !important;
+    border-color: #00f0ff !important;
+    color: #00f0ff !important;
+  }
+
+  .presetBar {
+    background: rgba(6, 24, 38, 0.8);
+    border: 1px solid rgba(0, 240, 255, 0.3);
     box-shadow:
       0 8px 24px rgba(0, 0, 0, 0.5),
       inset 0 1px 1px rgba(0, 240, 255, 0.15);
-    color: #e8f7ff !important;
+    color: #e8f7ff;
+  }
+
+  .presetBtn {
+    background: rgba(0, 240, 255, 0.18) !important;
+    color: #00f0ff !important;
 
     &:hover {
-      background: rgba(10, 36, 56, 0.95) !important;
-      border-color: #00f0ff !important;
-      box-shadow:
-        0 10px 28px rgba(0, 240, 255, 0.3),
-        inset 0 1px 1px rgba(0, 240, 255, 0.4);
-      color: #00f0ff !important;
+      background: #00f0ff !important;
+      color: #020b12 !important;
     }
   }
 
-  .crateTitleBadge {
-    background: rgba(6, 22, 35, 0.72);
-    border-color: rgba(0, 240, 255, 0.28);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-    color: #00f0ff;
+  .presetNameBtn:hover {
+    color: #00f0ff !important;
+  }
+
+  .presetAutoBtn {
+    background: rgba(0, 240, 255, 0.12) !important;
+    color: #7cc3e8 !important;
+
+    &.autoActive {
+      background: #00f0ff !important;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+      color: #020b12 !important;
+    }
   }
 
   .searchWrap {
     background: rgba(6, 24, 38, 0.8);
-    border-color: rgba(0, 240, 255, 0.28);
+    border: 1px solid rgba(0, 240, 255, 0.3);
     box-shadow:
-      0 8px 26px rgba(0, 0, 0, 0.45),
-      inset 0 1px 1px rgba(0, 240, 255, 0.12);
+      0 8px 24px rgba(0, 0, 0, 0.5),
+      inset 0 1px 1px rgba(0, 240, 255, 0.15);
     color: #00f0ff;
 
     &:focus-within {
-      background: rgba(9, 32, 50, 0.95);
+      background: rgba(10, 36, 56, 0.95);
       border-color: #00f0ff;
       box-shadow:
-        0 10px 30px rgba(0, 240, 255, 0.28),
-        inset 0 1px 1px #00f0ff;
+        0 10px 28px rgba(0, 240, 255, 0.3),
+        inset 0 1px 1px rgba(0, 240, 255, 0.4);
       color: #00f0ff;
     }
 
@@ -607,7 +811,7 @@
       color: rgba(120, 195, 230, 0.55) !important;
 
       &:hover {
-        color: #f0faff !important;
+        color: #00f0ff !important;
       }
     }
   }
