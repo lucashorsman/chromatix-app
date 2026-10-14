@@ -3,6 +3,7 @@
 // ======================================================================
 
 import type { PlayerInitParams } from 'types/player';
+import * as audioBridge from './audioBridge';
 
 // ======================================================================
 // STATE
@@ -15,6 +16,12 @@ let isResetting = false;
 // True before the first loadTrack() and after unload().
 // Guards unload() from doing unnecessary work when the player is already idle.
 let needsReinit = true;
+
+// ======================================================================
+// ACCESSOR
+// ======================================================================
+
+export const getAudioElement = (): HTMLAudioElement | null => playerElement;
 
 // ======================================================================
 // INITIALISE
@@ -31,6 +38,7 @@ export const init = ({
   console.log('%c--- .native - init ---', 'color:#4c3ad4');
   if (!playerElement) {
     playerElement = document.createElement('audio');
+    playerElement.crossOrigin = 'anonymous';
     playerElement.pause();
     playerElement.volume = volumeMuted ? 0 : volumeLevel / 100;
     playerElement.addEventListener('loadstart', () => {
@@ -80,11 +88,13 @@ export const loadTrack = (trackSrc: string, progress: number = 0, play: boolean 
     needsReinit = false;
     playerElement.src = trackSrc;
     playerElement.load();
+    audioBridge.connectAudioElement(playerElement);
     // isResetting cleared when loadstart fires
     if (progress) {
       playerElement.currentTime = progress / 1000;
     }
     if (play) {
+      audioBridge.resumeAudioContext();
       playerElement.play().catch((_error) => null);
     }
   }
@@ -102,6 +112,8 @@ export const pause = (): void => {
 
 export const resume = (): void => {
   if (playerElement) {
+    audioBridge.connectAudioElement(playerElement);
+    audioBridge.resumeAudioContext();
     playerElement.play().catch((_error) => null);
   }
 };

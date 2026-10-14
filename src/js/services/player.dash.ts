@@ -4,6 +4,7 @@
 
 import * as dashjs from 'dashjs';
 import type { PlayerInitParams } from 'types/player';
+import * as audioBridge from './audioBridge';
 
 // ======================================================================
 // STATE
@@ -19,6 +20,12 @@ let isResetting = false;
 // True before the first loadTrack() and after any reset() from unload().
 // initialize() must be called (not attachSource()) when this flag is set.
 let needsReinit = true;
+
+// ======================================================================
+// ACCESSOR
+// ======================================================================
+
+export const getAudioElement = (): HTMLAudioElement | null => audioElement;
 
 // ======================================================================
 // INITIALISE
@@ -43,6 +50,7 @@ export const init = ({
   console.log('%c--- .dash - init ---', 'color:#2f67d0');
 
   audioElement = document.createElement('audio');
+  audioElement.crossOrigin = 'anonymous';
   audioElement.volume = volumeMuted ? 0 : volumeLevel / 100;
   audioElement.addEventListener('loadstart', () => {
     // New source is loading — clear the flag so subsequent errors are real.
@@ -123,6 +131,8 @@ export const loadTrack = (dashSrc: string, progress: number = 0, play: boolean =
   // Call play() synchronously — dash.js's autoPlay invokes it after async manifest
   // fetch, by which point the browser's user-gesture context may have expired.
   if (play) {
+    audioBridge.connectAudioElement(audioElement);
+    audioBridge.resumeAudioContext();
     audioElement.play().catch((_e) => null);
   }
   // isResetting cleared when loadstart fires
@@ -140,6 +150,10 @@ export const pause = (): void => {
 
 export const resume = (): void => {
   if (mediaPlayer && supported) {
+    if (audioElement) {
+      audioBridge.connectAudioElement(audioElement);
+      audioBridge.resumeAudioContext();
+    }
     mediaPlayer.play();
   }
 };

@@ -187,6 +187,14 @@ export const setVolume = (volumeLevel: number): void => {
 // };
 
 // ======================================================================
+// ACTIVE AUDIO ELEMENT ACCESSOR
+// ======================================================================
+
+export const getActiveAudioElement = (): HTMLAudioElement | null => {
+  return activePlayer === 'native' ? nativeX.getAudioElement() : dashX.getAudioElement();
+};
+
+// ======================================================================
 // DEBUGGING - BROWSER CONSOLE ACCESS
 // ======================================================================
 
