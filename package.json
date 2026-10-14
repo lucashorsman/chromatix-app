@@ -97,6 +97,8 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.6.1",
     "axios": "^1.18.1",
+    "butterchurn": "^2.6.7",
+    "butterchurn-presets": "^2.4.7",
     "chroma-js": "^3.2.0",
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",

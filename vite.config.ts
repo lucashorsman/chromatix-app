@@ -72,9 +72,6 @@ export default defineConfig(({ mode }) => ({
     rolldownOptions: {
       output: {
         manualChunks: (id) => {
-          if (id.includes('node_modules/@radix-ui/')) {
-            return 'radix';
-          }
           if (id.includes('node_modules/dashjs/')) {
             return 'dashjs';
           }
